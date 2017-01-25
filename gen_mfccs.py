@@ -1,5 +1,5 @@
-def gen_mfccs( audio, n_filterbanks=26, n_mfccs=11, n_fft=1024, low_freq=200, high_freq=16000 ):
-
+def gen_mfccs( data, fs, n_filterbanks=26, n_mfccs=11, n_fft=1024, low_freq=200, high_freq=16000 ):
+# remember to  ^     ^  change this back (just 'audio')
     # need some error handling here to deal with e.g. n_mfccs > n_filterbanks etc.
 
     import numpy as np
@@ -7,7 +7,7 @@ def gen_mfccs( audio, n_filterbanks=26, n_mfccs=11, n_fft=1024, low_freq=200, hi
     import scipy.fftpack as fft
 
     # import data and set up loop variables
-    data, fs = sf.read(audio)
+    # data, fs = sf.read(audio)
     data = data[:,0] # extract left channel (mono input)
     frame_length = int(np.floor(fs/1000) * 25) # calculate samples needed for 25s frame (20-40ms standard)
     step_length = int(np.floor(frame_length/2))
