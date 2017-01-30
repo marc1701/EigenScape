@@ -3,7 +3,7 @@
 
 from mfcc_audio_class import *
 import sklearn.preprocessing as prp
-from sklearn.mixture import GMM
+from sklearn.mixture import GaussianMixture
 
 training_info = [] # initialise list for string import
 with open("evaluation_setup/fold1_train.txt", "r") as info_file:
@@ -24,7 +24,7 @@ for x in training_info:
 
 # for soundclass in training_data: # normalise feature data
 #     training_data[soundclass] = prp.scale(training_data[soundclass])
-i = 0
+i = -1
 training_data = {"scene_labels":[], "target_numbers":np.array([], dtype="int"), "data":np.array([])}
 for example in training_set:
     if training_data["data"].size == 0:
@@ -32,11 +32,24 @@ for example in training_set:
     else:
         training_data["data"] = np.vstack((training_data["data"], example.mfccs))
 
-    training_data["target_numbers"] = np.append(training_data["target_numbers"], [i] * np.size(example.mfccs, 0))
-    # getting a weird thing at the moment where this ends up being longer than the data array
-
     if example.label not in training_data["scene_labels"]:
         training_data["scene_labels"].append(example.label)
         i += 1
 
-# classifier = GMM(10, "full", )
+    training_data["target_numbers"] = np.append(training_data["target_numbers"], [i] * np.size(example.mfccs, 0))
+
+n_classes = len(training_data["scene_labels"])
+# calculate the means of each class
+means = np.array([training_data["data"][training_data["target_numbers"]==i].mean(0) for i in range(n_classes)])
+
+# create GMM object
+classifier = GaussianMixture(15, "full", means_init=means)
+
+# fit Gaussians to data
+classifier.fit(training_data["data"])
+
+# test model on training data
+predictions = classifier.predict(training_data["data"])
+# this hasn't worked very well at all so far
+
+accuracy = np.mean(predictions == training_data["target_numbers"]) * 100
