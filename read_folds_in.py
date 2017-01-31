@@ -5,14 +5,21 @@ from mfcc_audio_class import *
 import sklearn.preprocessing as prp
 from sklearn.mixture import GaussianMixture
 
-training_info = [] # initialise list for string import
-with open("evaluation_setup/fold1_train.txt", "r") as info_file:
-    for lines in info_file:
-        training_info.append(info_file.readline().split())
+# read audio file database text into script
+with open('evaluation_setup/fold1_train.txt', 'r') as info_file:
+    training_info = [info_file.readline().split() for lines in info_file]
 
-training_set = [] # initialise list for audio objects
-for x in training_info:
-    training_set.append(audio_sample(x[0], x[1]))
+# create audio objects (w/MFCCs) for all the specified audio files
+training_set = [audio_sample(x[0], x[1]) for x in training_info]
+
+
+# read testing set into memory - REPEAT OF ABOVE LINES, SHOULD FUNCTIONISE THIS
+with open('evaluation_setup/fold1_evaluate.txt', 'r') as info_file:
+    testing_info = [info_file.readline().split() for lines in info_file]
+
+# create audio objects (w/MFCCs) for all the specified audio files
+testing_set = [audio_sample(x[0], x[1]) for x in testing_info]
+
 
 # build dictionary and hold accumulated feature vectors from each class label
 # this is currently imcompatible with the accumulator code below
@@ -24,10 +31,26 @@ for example in training_set:
         training_data[example.label] = np.vstack((training_data[example.label], example.mfccs))
 
 gmms = {} # initialise dictionary for GMMs
-for label in training_data: # normalise feature data
-    training_data[label] = prp.scale(training_data[label])
+for label in training_data:
+    training_data[label] = prp.scale(training_data[label]) # normalise feature data
     gmms[label] = GaussianMixture(n_components=10)
-    gmms[label].fit(training_data[label])
+    gmms[label].fit(training_data[label]) # train GMMs
+
+
+# Test all files from testing data using the code currently in gmm_classify.py
+# Total up how many were classified correctly against however many in class n
+# print labels and percentages
+
+correct = 0
+for example in testing_set:
+    for label, gmm in gmms.items():
+        score = gmm.score_samples(example.mfccs)
+        score = np.sum(score)
+        if score > best_score:
+            best_score = score
+            best_label = label
+        if example.label == best_label:
+            correct += 1
 
 # i = -1
 # training_data = {"scene_labels":[], "target_numbers":np.array([], dtype="int"), "data":np.array([])}
