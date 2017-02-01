@@ -78,3 +78,4 @@ class audio_sample:
         self.mfccs = self.mfccs[:,1:n_mfccs+1] # keep only specified number of mfccs
         # need an if statement here to deal with the situation where we want to keep all MFCCs
         # i.e. mfcc[0,:] should be kept
+        del(self.sound) # actual audio no longer needed
