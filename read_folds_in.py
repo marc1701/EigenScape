@@ -19,7 +19,8 @@ for entry in training_info:
     entry[0] = '../TUT-acoustic-scenes-2016-development/' + entry[0]
 
 # create audio objects (w/MFCCs) for all the specified audio files
-training_set = [audio_sample(x[0], x[1]) for x in training_info]
+n_mfccs = 20
+training_set = [audio_sample(x[0], x[1], n_mfccs) for x in training_info]
 
 label_list = [] # make list of numbers for labels
 for example in training_set:
@@ -37,8 +38,7 @@ for example in training_set:
     else:
         training_data = np.vstack((training_data, data_to_add))
 
-training_data[:,:11] = prp.scale(training_data[:,:11]) # normalise data
-
+training_data[:,:n_mfccs] = prp.scale(training_data[:,:n_mfccs]) # normalise data
 
 
 
@@ -66,10 +66,10 @@ gmms = {} # initialise dictionary for GMMs
 results = {} # initialise dictionary for result tallies
 scores = {} # initialise dictionary for scores
 for label in label_list:
-    gmms[label] = GaussianMixture(n_components=10)
+    gmms[label] = GaussianMixture(n_components=50)
     label_num = label_list.index(label)
     # extract class data from training matrix
-    label_training_data = training_data[training_data[:,11] == label_num, :11]
+    label_training_data = training_data[training_data[:,n_mfccs] == label_num, :n_mfccs]
     gmms[label].fit(label_training_data) # train GMMs
     results[label] = [0,0] # set up results dictionary
 
