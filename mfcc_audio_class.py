@@ -30,9 +30,10 @@ class audio_sample:
                 cls.mel_bank[m,k] = (filter_bins[m+2]-k)/(filter_bins[m+2] - filter_bins[m+1])
 
 
-    def __init__(self, audio, label="unknown"): # not sure we need a label here
+    def __init__(self, audio, label="unknown", n_mfccs=11): # not sure we need a label here
         self.sound, self.fs = sf.read(audio)
         self.label = label
+        self.n_mfccs = n_mfccs
         # can we assign new labels to a new number here - class-wide dictionary
         # self.mfccs = gm.gen_mfccs(self.sound, self.fs)
 
@@ -49,7 +50,7 @@ class audio_sample:
         audio_sample.sample_count += 1
 
 
-    def gen_mfccs(self, n_mfccs=11):
+    def gen_mfccs(self):
         # should be able to re-call this method to redo mfcc calculation later
         # I need to include provision for changing the n_fft also
 
@@ -75,7 +76,7 @@ class audio_sample:
             self.mfccs[n,:] = fft.dct(filter_energies) # mfccs =  DCT of log energy
             # this should build up a matrix of MFCCs for the whole file
 
-        self.mfccs = self.mfccs[:,1:n_mfccs+1] # keep only specified number of mfccs
+        self.mfccs = self.mfccs[:,:self.n_mfccs] # keep only specified number of mfccs
         # need an if statement here to deal with the situation where we want to keep all MFCCs
         # i.e. mfcc[0,:] should be kept
         del(self.sound) # actual audio no longer needed
