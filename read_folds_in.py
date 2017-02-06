@@ -95,10 +95,6 @@ for example in training_set:
         correct += 1
         results[example.label][1] += 1
 
-# Test all files from testing data using the code currently in gmm_classify.py
-# Total up how many were classified correctly against however many in class n
-# print labels and percentages
-
 # correct = 0
 # for example in testing_set:
 #     results[example.label][0] += 1 # add to example labels class count
