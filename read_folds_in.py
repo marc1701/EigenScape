@@ -7,6 +7,7 @@ import sklearn.preprocessing as prp
 from sklearn.mixture import GaussianMixture
 import librosa
 import numpy as np
+from collections import OrderedDict
 # import glob
 
 # filepaths = glob.glob(
@@ -16,76 +17,88 @@ import numpy as np
 with open(
 '../TUT-acoustic-scenes-2016-development/evaluation_setup/fold1_train.txt',
 'r') as info_file:
-    training_info = [line.split() for line in info_file]
+    training_info = OrderedDict(line.split() for line in info_file)
 
 ##########################################################
 ####### CALCULATION OF MFCCS #######
 # need to make the audio folder an input parameter
-label_list = [] # make list of numbers for labels
-# training_dict = {}
-for entry in training_info:
-    if entry[1] not in label_list:
-        label_list.append(entry[1])
+label_list = [] # make list of labels
+training_indeces = {}
+for filepath, label in training_info.items():
+    if label not in label_list:
+        label_list.append(label)
+        print('Added ' + label + ' to the label list.')
 
-    target = label_list.index(entry[1]) # numerical class indicator
+    target = label_list.index(label) # numerical class indicator
     # load audio file - note librosa collapses to mono and resamples @ 22050 Hz
     audio, fs = librosa.load(
-                '../TUT-acoustic-scenes-2016-development/' + entry[0])
+                '../TUT-acoustic-scenes-2016-development/' + filepath)
+
     mfccs = librosa.feature.mfcc(audio, fs) # calculate MFCC values
     # swap axes so feature vectors are horizontal (time runs downwards)
-    mfccs = np.swapaxes(mfccs, 0, 1)
-    new_data_size = len(mfccs)
+    mfccs = mfccs.swapaxes(0, 1)
 
     # append a targets column at the end of the mfcc array
-    data_to_add = np.hstack((mfccs, np.array([[target]] * new_data_size)))
+    data_to_add = np.hstack((mfccs, np.array([[target]] * len(mfccs))))
 
     if 'training_data' not in locals(): # does this variable exist yet?
+        training_indeces[filepath] = [0, len(data_to_add)]
         training_data = data_to_add
     else:
+        training_indeces[filepath] = [len(training_data), len(training_data)
+                                      + len(data_to_add)]
+
+        # add indeces for mfccs from current file to dictionary
         training_data = np.vstack((training_data, data_to_add))
+        # this allows for testing classification using mfccs
+        # from specific examples without having to reload audio
+
+print('Training data read complete.')
 ###### MIGHT BE AN IDEA TO TURN THIS INTO A FUCTION ######
 ##########################################################
 
 # normalise data - scaler object remembers mean and var from training data
 # can apply the same transform later to test data using these values
 data_scaler = prp.StandardScaler()
-# fit scaler and scale training data (exclude last colums - target_numbers)
-scaled_data = data_scaler.fit_transform(training_data[:,:-1])
-# stick target_numbers back on the end
-scaled_data = np.hstack((scaled_data, training_data[:,[-1]]))
+# fit scaler and scale training data (exclude last column - target_numbers)
+training_data[:,:-1] = data_scaler.fit_transform(training_data[:,:-1])
 
 gmms = {} # initialise dictionary for GMMs
-results = {} # initialise dictionary for result tallies
 scores = {} # initialise dictionary for scores
 for label in label_list:
+    print('Training GMM for ' + label)
     gmms[label] = GaussianMixture(n_components=10)
     label_num = label_list.index(label)
     # extract class data from training matrix
-    label_data = scaled_data[scaled_data[:,-1] == label_num,:-1]
+    label_data = training_data[training_data[:,-1] == label_num,:-1]
     gmms[label].fit(label_data) # train GMMs
-    results[label] = [0,0] # set up results dictionary
 
-# reload audio files individually to test accuracy of classifier
-# (can very probably devise a better way of storing data from earlier to avoid
-#  having to reload all the audio files!)
+results = OrderedDict()
 for entry in training_info:
-    audio, fs = librosa.load('../TUT-acoustic-scenes-2016-development/' +
-    entry[0])
+    # find indeces of data from specific audio file
+    start, end = training_indeces[entry][0], training_indeces[entry][1]
+    print('Testing ' + entry)
 
-    test_data = np.swapaxes(librosa.feature.mfcc(audio, fs), 0, 1)
-    test_data = data_scaler.transform(mfccs)
-    results[entry[1]][0] += 1
+    # slice data from large array
+    data_to_evaluate = training_data[start:end,:-1]
 
     for label, gmm in gmms.items():
-        scores[label] = np.sum(gmm.score_samples(test_data))
+        scores[label] = np.sum(gmm.score_samples(data_to_evaluate))
 
-    top_score = -9e99
-    top_label = ''
+    # find label with highest score and store result in dictionary
+    results[entry] = max(scores, key = scores.get)
 
-    for label, score in scores.items():
-        if top_label == '' or top_score < score:
-            top_label = label
-            top_score = score
+# correct = 0
+# for entry in results:
+#     if results[entry] == training_info[entry]:
+#         correct += 1
 
-    if top_label == entry[1]:
-        results[entry[1]][1] += 1
+true = [label for entry, label in training_info.items()]
+predictions = [label for entry, label in results.items()]
+
+
+def plot_confusion_matrix:
+    dataframe_confmat = pd.DataFrame(confmat, label_list, label_list)
+    plt.figure(figsize = (10,7))
+    sn.heatmap(dataframe_confmat, annot=True)
+    # plt.show()
