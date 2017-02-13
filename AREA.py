@@ -14,7 +14,15 @@ class BasicAudioClassifier:
     ''' Basic GMM-MFCC audio classifier along the lines of the baseline model
     described in DCASE 2015 '''
 
-    def __init__( self, dataset_directory, info_file=''):
+    # @classmethod
+    # def init_from_textfile( cls, info_file, dataset_directory='' ):
+    #
+    #     info = extract_info(info_file)
+    #
+    #     return cls(info, dataset_directory)
+
+
+    def __init__( self, dataset_directory='' ):
 
         # data scaler for normalisation - remembers mean and var of input data
         self.scaler = StandardScaler()
@@ -25,54 +33,53 @@ class BasicAudioClassifier:
 
         self.dataset_directory = dataset_directory
 
-        if info_file != '':
-            # append directory to info_file address (assumes info_file is in
-            # the same top-level directory as audio files)
-            info_file = dataset_directory + info_file
-            self.train(info_file)
+        # if info != '':
+        #     results = self.train(info)
+        # decided to remove the option to train on init for now
 
 
-    def train( self, info_file ):
-        self.info = extract_info(info_file)
+    def train_from_textfile( self, info_file ):
+        info = extract_info(info_file)
+        results = self.train(info)
+
+
+    def train( self, info ):
 
         # make list of unique labels in training data
-        self.label_list = sorted(set(labels for examples, labels in self.info.items()))
-
-        data, indeces = self.gen_audio_features()
+        self.label_list = sorted(set(labels for examples, labels in info.items()))
+        data, indeces = self.gen_audio_features(info)
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self.scaler.fit_transform(data[:,:-1])
         self.fit_gmms(data)
-        self.test_input(data, indeces)
+        results = self.test_input(data, info, indeces)
 
-        correct = 0
-        for entry in self.results:
-            if self.results[entry] == self.info[entry]:
-                correct += 1
-
-        self.train_acc = (correct/len(self.info)*100)
+        # find overall training accuracy percentage
+        self.train_acc = overall_accuracy(info, results)
         print('Training complete. Classifier is ' + str(self.train_acc) +
         ' % accurate in labelling the training data.')
 
+        return results
 
-    def classify( self, info_file ):
+
+    def classify( self, info ):
         # call this function to classify new data after training
 
-        self.info = extract_info(info_file)
         # generate audio features
-        data, indeces = self.gen_audio_features()
+        data, indeces = self.gen_audio_features(info)
         # scale data using pre-calculated mean and var
         data[:,:-1] = self.scaler.transform(data[:,:-1])
         # test_input function gets scores from GMM set
-        self.test_input(data, indeces)
+        results = self.test_input(data, info, indeces)
 
-        return self.results
+        return results
 
+############################# 'Private' methods: ###############################
 
-    def gen_audio_features( self ):
+    def gen_audio_features( self, info ):
 
         indeces = {}
 
-        for filepath, label in self.info.items():
+        for filepath, label in info.items():
 
             target = self.label_list.index(label) # numerical class indicator
             # load audio file
@@ -94,6 +101,7 @@ class BasicAudioClassifier:
 
                 # add indeces for mfccs from current file to dictionary
                 data = np.vstack((data, data_to_add))
+                print('Added ' + filepath + ' featuresinfo='',  to the dataset.')
                 # this allows for testing classification using mfccs
                 # from specific examples without having to reload audio
 
@@ -103,7 +111,7 @@ class BasicAudioClassifier:
 
     def fit_gmms( self, data ):
         for label in self.label_list:
-            # print('Training GMM for ' + label)
+            print('Training GMM for ' + label)
             self.gmms[label] = GaussianMixture(n_components=10)
             label_num = self.label_list.index(label)
             # extract class data from training matrix
@@ -111,12 +119,13 @@ class BasicAudioClassifier:
             self.gmms[label].fit(label_data) # train GMMs
 
 
-    def test_input( self, data, indeces ):
+    def test_input( self, data, info, indeces ):
 
-        self.results = OrderedDict()
+        # import pdb; pdb.set_trace()
+        results = OrderedDict()
         scores = {} # initialise dictionary for scores
 
-        for entry in self.info:
+        for entry in info:
             # find indeces of data from specific audio file
             start, end = indeces[entry][0], indeces[entry][1]
             print('Testing ' + entry)
@@ -128,16 +137,22 @@ class BasicAudioClassifier:
                 scores[label] = np.sum(gmm.score_samples(data_to_evaluate))
 
             # find label with highest score and store result in dictionary
-            self.results[entry] = max(scores, key = scores.get)
+            results[entry] = max(scores, key = scores.get)
 
-
-    def show_confusion( self ):
-        # plots a confusion matrix based upon last set of results
-        # these can be either from training or testing
-        plot_confusion_matrix(self.info, self.results, self.label_list)
+        return results
 
 
 ################################################################################
+################################################################################
+
+def test_confusion( test_data_file, classifier ):
+
+    info = extract_info(test_data_file)
+    results = classifier.classify(info)
+    plot_confusion_matrix(info, results)
+
+    return results
+
 
 def extract_info( file_to_read ):
 
@@ -145,6 +160,7 @@ def extract_info( file_to_read ):
         info = OrderedDict(line.split() for line in info_file)
 
     return info # info is a dictionary with filenames and class labels
+    # and is the preferred input format for BasicAudioClassifier
 
 
 def plot_confusion_matrix( info, results ):
@@ -161,3 +177,14 @@ def plot_confusion_matrix( info, results ):
     plt.figure(figsize = (10,7))
     sn.heatmap(dataframe_confmat, annot=True)
     plt.show()
+
+
+def overall_accuracy( info, results ):
+    correct = 0
+    for entry in results:
+        if results[entry] == info[entry]:
+            correct += 1
+
+    accuracy = (correct/len(info)*100)
+
+    return accuracy
