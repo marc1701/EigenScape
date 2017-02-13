@@ -14,7 +14,7 @@ class BasicAudioClassifier:
     ''' Basic GMM-MFCC audio classifier along the lines of the baseline model
     described in DCASE 2015 '''
 
-    def __init__( self, file_to_read='' ):
+    def __init__( self, dataset_directory, info_file=''):
 
         # data scaler for normalisation - remembers mean and var of input data
         self.scaler = StandardScaler()
@@ -23,61 +23,61 @@ class BasicAudioClassifier:
         self.label_list = [] # set up list of class labels
         self.gmms = {} # initialise dictionary for GMMs
 
-        if file_to_read != '':
-            self.train(file_to_read)
+        self.dataset_directory = dataset_directory
+
+        if info_file != '':
+            # append directory to info_file address (assumes info_file is in
+            # the same top-level directory as audio files)
+            info_file = dataset_directory + info_file
+            self.train(info_file)
 
 
-    def train( self, file_to_read ):
-        data, info, indeces = self.gen_audio_features(file_to_read)
+    def train( self, info_file ):
+        self.info = extract_info(info_file)
+
+        # make list of unique labels in training data
+        self.label_list = sorted(set(labels for examples, labels in self.info.items()))
+
+        data, indeces = self.gen_audio_features()
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self.scaler.fit_transform(data[:,:-1])
         self.fit_gmms(data)
-        results = self.test_input(data, info, indeces)
+        self.test_input(data, indeces)
 
         correct = 0
-        for entry in results:
-            if results[entry] == info[entry]:
+        for entry in self.results:
+            if self.results[entry] == self.info[entry]:
                 correct += 1
 
-        self.train_acc = (correct/len(info)*100)
+        self.train_acc = (correct/len(self.info)*100)
         print('Training complete. Classifier is ' + str(self.train_acc) +
-        ' % accurate in classifying the training data.')
+        ' % accurate in labelling the training data.')
 
 
-    def classify( self, file_to_read ):
+    def classify( self, info_file ):
         # call this function to classify new data after training
 
+        self.info = extract_info(info_file)
         # generate audio features
-        data, info, indeces = self.gen_audio_features(file_to_read)
-        # save info of test data for confusion matrix plot
-        self.last_info = info
+        data, indeces = self.gen_audio_features()
         # scale data using pre-calculated mean and var
         data[:,:-1] = self.scaler.transform(data[:,:-1])
         # test_input function gets scores from GMM set
-        results = self.test_input(data, info, indeces)
-        # save latest results for confusion matrix plot
-        self.last_results = results
+        self.test_input(data, indeces)
 
-        return results
+        return self.results
 
 
-    def gen_audio_features( self, file_to_read ):
-
-        with open(file_to_read) as info_file:
-            info = OrderedDict(line.split() for line in info_file)
-        # info is a dictionary with filenames and class labels for training or testing data
+    def gen_audio_features( self ):
 
         indeces = {}
-        for filepath, label in info.items():
-            if label not in self.label_list:
-                self.label_list.append(label)
-                print('Added ' + label + ' to the label list.')
+
+        for filepath, label in self.info.items():
 
             target = self.label_list.index(label) # numerical class indicator
             # load audio file
             # note librosa collapses to mono and resamples @ 22050 Hz
-            audio, fs = librosa.load(
-                        '../TUT-acoustic-scenes-2016-development/' + filepath)
+            audio, fs = librosa.load(self.dataset_directory + filepath)
 
             mfccs = librosa.feature.mfcc(audio, fs) # calculate MFCC values
             # swap axes so feature vectors are horizontal (time runs downwards)
@@ -98,7 +98,7 @@ class BasicAudioClassifier:
                 # from specific examples without having to reload audio
 
         print('Feature extraction complete.')
-        return data, info, indeces
+        return data, indeces
 
 
     def fit_gmms( self, data ):
@@ -111,12 +111,12 @@ class BasicAudioClassifier:
             self.gmms[label].fit(label_data) # train GMMs
 
 
-    def test_input( self, data, info, indeces ):
+    def test_input( self, data, indeces ):
 
-        results = OrderedDict()
+        self.results = OrderedDict()
         scores = {} # initialise dictionary for scores
 
-        for entry in info:
+        for entry in self.info:
             # find indeces of data from specific audio file
             start, end = indeces[entry][0], indeces[entry][1]
             print('Testing ' + entry)
@@ -128,24 +128,34 @@ class BasicAudioClassifier:
                 scores[label] = np.sum(gmm.score_samples(data_to_evaluate))
 
             # find label with highest score and store result in dictionary
-            results[entry] = max(scores, key = scores.get)
-
-        # returns an OrderedDict of predictions corresponding to input file list
-        return results
+            self.results[entry] = max(scores, key = scores.get)
 
 
     def show_confusion( self ):
-        plot_confusion_matrix(self.last_info, self.last_results, self.label_list)
+        # plots a confusion matrix based upon last set of results
+        # these can be either from training or testing
+        plot_confusion_matrix(self.info, self.results, self.label_list)
+
 
 ################################################################################
-def plot_confusion_matrix( info, results, label_list ):
+
+def extract_info( file_to_read ):
+
+    with open(file_to_read) as info_file:
+        info = OrderedDict(line.split() for line in info_file)
+
+    return info # info is a dictionary with filenames and class labels
+
+
+def plot_confusion_matrix( info, results ):
 # this function extracts lists of classes from OrderedDicts passed to it
-# label list could be extracted from the info dict to make this more standalone
 
     true = [label for entry, label in info.items()]
     predictions = [label for entry, label in results.items()]
 
-    confmat = confusion_matrix(true, predictions, label_list)
+    label_list = sorted(set(true + predictions))
+
+    confmat = confusion_matrix(true, predictions)#, label_list)
 
     dataframe_confmat = pd.DataFrame(confmat, label_list, label_list)
     plt.figure(figsize = (10,7))
