@@ -31,6 +31,7 @@ class BasicAudioClassifier:
         self.label_list = [] # set up list of class labels
         self.gmms = {} # initialise dictionary for GMMs
 
+        # set dataset_directory or class will assume current working directory
         self.dataset_directory = dataset_directory
 
         # if info != '':
