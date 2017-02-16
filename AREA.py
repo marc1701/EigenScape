@@ -3,6 +3,7 @@ import numpy as np
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 
 import pandas as pd
@@ -167,18 +168,25 @@ def extract_info( file_to_read ):
 
 def plot_confusion_matrix( info, results ):
 # this function extracts lists of classes from OrderedDicts passed to it
+# is this doing too much now
 
     true = [label for entry, label in info.items()]
     predictions = [label for entry, label in results.items()]
 
     label_list = sorted(set(true + predictions))
+    report = classification_report(true, predictions, label_list)
 
     confmat = confusion_matrix(true, predictions)
+    accuracies = confmat.diagonal() / confmat.sum(axis=1)
+    class_accuracies = dict(zip(label_list, accuracies))
+    total_accuracy = confmat.diagonal().sum() / confmat.sum()
 
     dataframe_confmat = pd.DataFrame(confmat, label_list, label_list)
     plt.figure(figsize = (10,7))
     sn.heatmap(dataframe_confmat, annot=True)
     plt.show()
+
+    return confmat, class_accuracies, total_accuracy, report
 
 
 def overall_accuracy( info, results ):
