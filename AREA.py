@@ -102,7 +102,7 @@ class BasicAudioClassifier:
 
                 # add indeces for mfccs from current file to dictionary
                 data = np.vstack((data, data_to_add))
-                print('Added ' + filepath + ' featuresinfo='', to the dataset.')
+                print('Added ' + filepath + ' features to the dataset.')
                 # this allows for testing classification using mfccs
                 # from specific examples without having to reload audio
 
