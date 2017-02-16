@@ -25,11 +25,11 @@ class BasicAudioClassifier:
     def __init__( self, dataset_directory='' ):
 
         # data scaler for normalisation - remembers mean and var of input data
-        self.scaler = StandardScaler()
+        self._scaler = StandardScaler()
         # we can apply the same transform later to test data using these values
 
-        self.label_list = [] # set up list of class labels
-        self.gmms = {} # initialise dictionary for GMMs
+        self._label_list = [] # set up list of class labels
+        self._gmms = {} # initialise dictionary for GMMs
 
         # set dataset_directory or class will assume current working directory
         self.dataset_directory = dataset_directory
@@ -47,12 +47,12 @@ class BasicAudioClassifier:
     def train( self, info ):
 
         # make list of unique labels in training data
-        self.label_list = sorted(set(labels for examples, labels in info.items()))
-        data, indeces = self.gen_audio_features(info)
+        self._label_list = sorted(set(labels for examples, labels in info.items()))
+        data, indeces = self._gen_audio_features(info)
         # fit scaler and scale training data (exclude target_numbers column)
-        data[:,:-1] = self.scaler.fit_transform(data[:,:-1])
-        self.fit_gmms(data)
-        results = self.test_input(data, info, indeces)
+        data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
+        self._fit_gmms(data)
+        results = self._test_input(data, info, indeces)
 
         # find overall training accuracy percentage
         self.train_acc = overall_accuracy(info, results)
@@ -66,23 +66,23 @@ class BasicAudioClassifier:
         # call this function to classify new data after training
 
         # generate audio features
-        data, indeces = self.gen_audio_features(info)
+        data, indeces = self._gen_audio_features(info)
         # scale data using pre-calculated mean and var
-        data[:,:-1] = self.scaler.transform(data[:,:-1])
-        # test_input function gets scores from GMM set
-        results = self.test_input(data, info, indeces)
+        data[:,:-1] = self._scaler.transform(data[:,:-1])
+        # _test_input function gets scores from GMM set
+        results = self._test_input(data, info, indeces)
 
         return results
 
 ############################# 'Private' methods: ###############################
 
-    def gen_audio_features( self, info ):
+    def _gen_audio_features( self, info ):
 
         indeces = {}
 
         for filepath, label in info.items():
 
-            target = self.label_list.index(label) # numerical class indicator
+            target = self._label_list.index(label) # numerical class indicator
             # load audio file
             # note librosa collapses to mono and resamples @ 22050 Hz
             audio, fs = librosa.load(self.dataset_directory + filepath)
@@ -110,17 +110,17 @@ class BasicAudioClassifier:
         return data, indeces
 
 
-    def fit_gmms( self, data ):
-        for label in self.label_list:
+    def _fit_gmms( self, data ):
+        for label in self._label_list:
             print('Training GMM for ' + label)
-            self.gmms[label] = GaussianMixture(n_components=10)
-            label_num = self.label_list.index(label)
+            self._gmms[label] = GaussianMixture(n_components=10)
+            label_num = self._label_list.index(label)
             # extract class data from training matrix
             label_data = data[data[:,-1] == label_num,:-1]
-            self.gmms[label].fit(label_data) # train GMMs
+            self._gmms[label].fit(label_data) # train GMMs
 
 
-    def test_input( self, data, info, indeces ):
+    def _test_input( self, data, info, indeces ):
 
         # import pdb; pdb.set_trace()
         results = OrderedDict()
@@ -134,7 +134,7 @@ class BasicAudioClassifier:
             # slice data from large array
             data_to_evaluate = data[start:end,:-1]
 
-            for label, gmm in self.gmms.items():
+            for label, gmm in self._gmms.items():
                 scores[label] = np.sum(gmm.score_samples(data_to_evaluate))
 
             # find label with highest score and store result in dictionary
@@ -151,8 +151,9 @@ def test_confusion( test_data_file, classifier ):
     info = extract_info(test_data_file)
     results = classifier.classify(info)
     plot_confusion_matrix(info, results)
+    accuracy = overall_accuracy(info, results)
 
-    return results
+    return results, accuracy
 
 
 def extract_info( file_to_read ):
@@ -172,7 +173,7 @@ def plot_confusion_matrix( info, results ):
 
     label_list = sorted(set(true + predictions))
 
-    confmat = confusion_matrix(true, predictions)#, label_list)
+    confmat = confusion_matrix(true, predictions)
 
     dataframe_confmat = pd.DataFrame(confmat, label_list, label_list)
     plt.figure(figsize = (10,7))
