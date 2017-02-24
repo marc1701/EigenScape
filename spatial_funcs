@@ -1,0 +1,58 @@
+import numpy as np
+import soundfile as sf
+from scipy import signal
+
+def f_to_mel(freq):
+    mel_freq = 1125 * np.log(1 + freq/700)
+
+    return mel_freq
+
+
+def mel_to_f(mel_freq):
+    freq = 700 * (np.exp(mel_freq/1125) - 1)
+
+    return freq
+
+low_freq = 20
+hi_freq = 20000
+n_filts = 42
+filt_taps = 4096
+fs = 44100
+
+mel_filt_freqs = np.linspace(f_to_mel(low_freq), f_to_mel(hi_freq), n_filts+2)
+
+filter_band_freqs = np.expand_dims(mel_to_f(mel_filt_freqs), 1)
+
+filter_centres = np.mean(np.concatenate((filter_band_freqs[:-1],
+                 filter_band_freqs[1:]), axis=1), axis=1)
+# filters = OrderedDict()
+# for i in range(len(filter_band_freqs)-1):
+#     if i != 0:
+#         filters[str(int(round(filter_band_freqs[i])))] = signal.firwin(4096,
+#         [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=22050)
+
+filters = np.zeros((filt_taps, n_filts))
+# filters = []
+for i in range(np.size(filters, axis=1)):
+    filters[:,i] = signal.firwin(filt_taps,
+    [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=fs/2)
+        # filters.append(signal.firwin(filt_taps,
+        # [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=fs/2))
+
+# example filter command
+# filtered = signal.lfilter(filters[x], [1.0], audio)
+
+audio_W, fs = sf.read('../SiteA.W.wav')
+audio_X = sf.read('../SiteA.X.wav')[0]
+audio_Y = sf.read('../SiteA.Y.wav')[0]
+audio_Z = sf.read('../SiteA.Z.wav')[0]
+
+audio_W, audio_X = np.expand_dims(audio_W, 1), np.expand_dims(audio_X, 1)
+audio_Y, audio_Z = np.expand_dims(audio_Y, 1), np.expand_dims(audio_Z, 1)
+
+audio = np.concatenate((audio_W, audio_X, audio_Y, audio_Z), axis=1)
+
+# audio = audio[:441000,:] # crop to first 10 seconds for speed (just for now)
+
+filt_audio = np.array([signal.lfilter(filt, [1.0], audio, axis=0)
+                       for filt in filters.T])
