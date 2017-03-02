@@ -58,7 +58,8 @@ E_means = np.mean(multichannel_frame(E, pad=True), axis=1) # multiband E
 # I_means = np.mean(multichannel_frame(I, pad=True), axis=1) # better single band I
 # multichannel_frame applies padding automatically
 
-I_means = np.array([np.mean(multichannel_frame(band.T, pad=True), axis=1) for band in I.T])
+I_means = np.array([np.mean(multichannel_frame(freq_band.T, pad=True), axis=1)
+                    for freq_band in I.T])
 # multiband I
 
 # calculate diffuseness (psi) for each 20 ms slice
@@ -74,14 +75,26 @@ DOA = - I_means
 # not sure if including extra decimal precision will be helful for ML
 # I think not but probably worth trying both ways
 # azi = np.degrees(np.array([np.arctan2(y,x) for x, y, z in DOA])).astype(int)
-azi = np.degrees(np.array([np.array([np.arctan2(y,x)
-                    for x, y, z in DOA_band])
-                        for DOA_band in DOA])).astype(int).T
+# azi = np.degrees(np.arctan2(DOA[:,1], DOA[:,0])).astype(int)
+# better single band azi
+
+azi = np.degrees(np.arctan2(DOA[:,:,1], DOA[:,:,0])).astype(int).T
+# better multiband azi
+
+# azi = np.degrees(np.array([np.array([np.arctan2(y,x)
+#                     for x, y, z in freq_band])
+#                         for freq_band in DOA])).astype(int).T
 
 # elev = np.degrees(np.array([np.arccos(z/np.linalg.norm([x,y,z])) for x, y, z in DOA])).astype(int)
-elev = np.degrees(np.array([np.array([np.arccos(z/np.linalg.norm([x,y,z]))
-                    for x, y, z in DOA_band])
-                        for DOA_band in DOA])).astype(int).T
+# elev = np.degrees(np.arccos(DOA[:,2] / np.linalg.norm(DOA, axis=1))).astype(int)
+# better single band elev
+
+elev = np.degrees(np.arccos(DOA[:,:,2] / np.linalg.norm(DOA, axis=2))).astype(int)
+# better multiband elev
+
+# elev = np.degrees(np.array([np.array([np.arccos(z/np.linalg.norm([x,y,z]))
+#                     for x, y, z in freq_band])
+#                         for freq_band in DOA])).astype(int).T
 
 
 # it would probably be possible to use matrix multiplication to calculate all
