@@ -15,15 +15,15 @@ def mel_to_f(mel_freq):
     return freq
 
 
-def multichannel_frame( audio_in ):
+def multichannel_frame( audio_in, n_fft=2048, pad=False ):
 
-    # need to try padding each channel seperately then stacking before doing
-    # it this clever way - need to verify it comes out the same!!!
-    padded = np.array([np.pad(channel, int(2048 // 2), 'reflect')
-                for channel in audio_in])
+    if pad == True:
+        # n_fft = 2048 as standard in librosa - need to make this alterable
+        audio_in = np.array([np.pad(channel, int(n_fft // 2), 'reflect')
+                    for channel in audio_in])
 
     frames = np.array([librosa.util.frame(np.ascontiguousarray(channel))
-                for channel in padded])
+                for channel in audio_in])
 
     frames = frames.swapaxes(0,2)
 
@@ -51,16 +51,14 @@ filter_band_freqs[i+1]], pass_zero=False,nyq=fs/2) for i in range(n_filts)])
 # filtered = signal.lfilter(filters[x], [1.0], audio)
 
 audio_W, fs = sf.read('../SiteA.W.wav')
-audio_X = sf.read('../SiteA.X.wav')[0]
-audio_Y = sf.read('../SiteA.Y.wav')[0]
-audio_Z = sf.read('../SiteA.Z.wav')[0]
-
-audio_W, audio_X = np.expand_dims(audio_W, 1), np.expand_dims(audio_X, 1)
-audio_Y, audio_Z = np.expand_dims(audio_Y, 1), np.expand_dims(audio_Z, 1)
+audio_W = audio_W.reshape(-1,1)
+audio_X = sf.read('../SiteA.X.wav')[0].reshape(-1,1)
+audio_Y = sf.read('../SiteA.Y.wav')[0].reshape(-1,1)
+audio_Z = sf.read('../SiteA.Z.wav')[0].reshape(-1,1)
 
 audio = np.concatenate((audio_W, audio_X, audio_Y, audio_Z), axis=1)
 
-# audio = audio[:441000,:] # crop to first 10 seconds for speed (just for now)
+audio = audio[:441000,:] # crop to first 10 seconds for speed (just for now)
 
 filt_audio = np.array([signal.lfilter(filt, [1.0], audio, axis=0)
-                       for filt in filters]).swapaxes(0,1)
+                       for filt in filters])
