@@ -1,5 +1,6 @@
 import numpy as np
 import soundfile as sf
+import librosa
 from scipy import signal
 
 def f_to_mel(freq):
@@ -13,6 +14,22 @@ def mel_to_f(mel_freq):
 
     return freq
 
+
+def multichannel_frame( audio_in ):
+
+    # need to try padding each channel seperately then stacking before doing
+    # it this clever way - need to verify it comes out the same!!!
+    padded = np.array([np.pad(channel, int(2048 // 2), 'reflect')
+                for channel in audio_in])
+
+    frames = np.array([librosa.util.frame(np.ascontiguousarray(channel))
+                for channel in padded])
+
+    frames = frames.swapaxes(0,2)
+
+    return frames
+
+
 low_freq = 20
 hi_freq = 20000
 n_filts = 42
@@ -21,23 +38,14 @@ fs = 44100
 
 mel_filt_freqs = np.linspace(f_to_mel(low_freq), f_to_mel(hi_freq), n_filts+2)
 
-filter_band_freqs = np.expand_dims(mel_to_f(mel_filt_freqs), 1)
+filter_band_freqs = mel_to_f(mel_filt_freqs)
 
-filter_centres = np.mean(np.concatenate((filter_band_freqs[:-1],
-                 filter_band_freqs[1:]), axis=1), axis=1)
-# filters = OrderedDict()
-# for i in range(len(filter_band_freqs)-1):
-#     if i != 0:
-#         filters[str(int(round(filter_band_freqs[i])))] = signal.firwin(4096,
-#         [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=22050)
+# filter_centres = np.mean(np.concatenate((filter_band_freqs[:-1],
+#                  filter_band_freqs[1:]), axis=1), axis=1)
 
-filters = np.zeros((filt_taps, n_filts))
-# filters = []
-for i in range(np.size(filters, axis=1)):
-    filters[:,i] = signal.firwin(filt_taps,
-    [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=fs/2)
-        # filters.append(signal.firwin(filt_taps,
-        # [filter_band_freqs[i], filter_band_freqs[i+1]], pass_zero=False, nyq=fs/2))
+filters = np.array([signal.firwin(filt_taps,[filter_band_freqs[i],
+filter_band_freqs[i+1]], pass_zero=False,nyq=fs/2) for i in range(n_filts)])
+
 
 # example filter command
 # filtered = signal.lfilter(filters[x], [1.0], audio)
@@ -55,4 +63,4 @@ audio = np.concatenate((audio_W, audio_X, audio_Y, audio_Z), axis=1)
 # audio = audio[:441000,:] # crop to first 10 seconds for speed (just for now)
 
 filt_audio = np.array([signal.lfilter(filt, [1.0], audio, axis=0)
-                       for filt in filters.T])
+                       for filt in filters]).swapaxes(0,1)
