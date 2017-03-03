@@ -95,7 +95,6 @@ class BasicAudioClassifier:
             # append a targets column at the end of the mfcc array
             data_to_add = np.hstack((mfccs, np.array([[target]] * len(mfccs))))
 
-            # there might be a way to do this more cleanly using list comprehensions 
             if 'data' not in locals(): # does this variable exist yet?
                 indeces[filepath] = [0, len(data_to_add)]
                 data = data_to_add
