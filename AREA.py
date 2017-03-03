@@ -48,7 +48,7 @@ class BasicAudioClassifier:
     def train( self, info ):
 
         # make list of unique labels in training data
-        self._label_list = sorted(set(labels for examples, labels in info.items()))
+        self._label_list = sorted(set(labels for x, labels in info.items()))
         data, indeces = self._gen_audio_features(info)
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
