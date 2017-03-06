@@ -21,13 +21,20 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
     # Save output from sf.read as list.
     sf_out = [sf.read(sound) for sound in file_list]
 
+    # Extract the audio arrays to a new list.
+    audio_list = [sound[0] for sound in sf_out]
+    # Deal with one-dimensional numpy arrays in case of monaural audio
+    for i, element in enumerate(audio_list):
+        if element.ndim < 2:
+            audio_list[i] = element.reshape(-1,1)
+
     # Unpack audio from list to numpy array.
-    audio = np.hstack([audio[0] for audio in sf_out])
+    audio = np.hstack([sound for sound in audio_list])
     # Unpack fs values from list.
     fs = [fs[1] for fs in sf_out]
 
     # Check we have 4 channels of audio (B-Format).
-    if audio.shape[1] != 4:
+    if audio.shape[-1] != 4:
         raise Exception('Total number of audio channels is greater than 4.')
 
     # Check sample rates of incoming audio files match.
@@ -47,7 +54,8 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
 
     # Trim time from start and end of recording (avoids noise from recordists).
     n_trim = int(target_fs * trim_length)
-    audio = audio[n_trim:-n_trim,:]
+    if n_trim:
+        audio = audio[n_trim:-n_trim,:]
 
     # Calculate the number of samples in a segment.
     seg_samples = target_fs * segment_length
