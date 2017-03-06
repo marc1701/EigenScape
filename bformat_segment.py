@@ -46,7 +46,7 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
         audio = np.hstack((WX, YZ))
 
     # Trim time from start and end of recording (avoids noise from recordists).
-    n_trim = target_fs * trim_length
+    n_trim = int(target_fs * trim_length)
     audio = audio[n_trim:-n_trim,:]
 
     # Calculate the number of samples in a segment.
@@ -55,7 +55,7 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
     n_segments = np.floor(len(audio) / seg_samples)
 
     # Calculate number of excess samples.
-    n_ex_samples = len(audio) - seg_samples * n_segments
+    n_ex_samples = int(len(audio) - seg_samples * n_segments)
     # Trim excess samples from start of audio.
     audio = audio[n_ex_samples:,:]
 
