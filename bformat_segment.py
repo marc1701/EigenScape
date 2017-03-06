@@ -16,7 +16,7 @@ import os
 # with eigenmike recordings).
 
 def bformat_segment(file_list, output_prefix, segment_length=30,
-                    target_fs=44100, trim_length=20):
+                    target_fs=44100, trim_length=20, filenum_start=1):
 
     # Save output from sf.read as list.
     sf_out = [sf.read(sound) for sound in file_list]
@@ -74,6 +74,6 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
     os.makedirs(output_prefix, exist_ok=True)
 
     # Save segmented audio files to directory.
-    for n, segment in enumerate(segments, start=1):
+    for n, segment in enumerate(segments, start=filenum_start):
          filepath = output_prefix + '/' + output_prefix + '.' + str(n) + '.wav'
          sf.write(filepath, segment, target_fs, 'PCM_24')
