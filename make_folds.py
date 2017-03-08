@@ -18,6 +18,17 @@ def unpack_list(x):
     unpacked = [i for y in x for i in y]
     return unpacked
 
+def write_fold_list(fold_list, name_format, directory):
+    # make a directory if it doesn't already exist
+    os.makedirs(directory, exist_ok=True)
+
+    for n, fold in enumerate(fold_list):
+        filename = '/' + name_format.replace('*', str(n+1))
+        txtfile = open(directory + filename,'w')
+        txtfile.writelines(fold)
+        txtfile.close()
+
+
 n_folds = 4
 dataset_dirs = ['SiteA-24-11-16','SiteB-24-11-16','SiteC-24-11-16']
 audio_directory = 'audio'
@@ -55,22 +66,13 @@ train_folds = [unpack_list([x for x in test_folds if x not in [fold]])
 for fold in train_folds:
     fold.sort()
 
-# make a folder for evaluation text files
-os.makedirs('evaluation_setup', exist_ok=True)
-
 # write results out to text files
-for n, fold in enumerate(test_folds):
-    txtfile = open(text_directory + '/fold' + str(n+1) + '_test.txt','w')
-    txtfile.writelines(fold)
-    txtfile.close()
-
-for n, fold in enumerate(train_folds):
-    txtfile = open(text_directory + '/fold' + str(n+1) + '_train.txt','w')
-    txtfile.writelines(fold)
-    txtfile.close()
+write_fold_list(test_folds, 'fold*_test.txt', text_directory)
+write_fold_list(train_folds, 'fold*_train.txt', text_directory)
 
 # make a folder to move audio database into
 os.makedirs(audio_directory, exist_ok=True)
 
+# move audio to database folder
 for filepath in unpack_list(filename_list):
     os.rename(filepath, audio_directory + '/' + filepath[filepath.find('/')+1:])
