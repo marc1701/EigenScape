@@ -1,13 +1,3 @@
-# read filenames of recordings in
-#
-# bformat_segment function creates filenames - could we use filename list output
-# from this??
-#
-# randomly shuffle recordings within class
-# divide each class set into 4 segments
-# write text files with 3x segments for testing and the remaining for training
-# for now include class label
-
 import glob
 import random
 import os
@@ -28,7 +18,10 @@ def write_fold_list(fold_list, name_format, directory):
         txtfile.writelines(fold)
         txtfile.close()
 
-def segment_dataset(n_folds, dataset_dirs, output_text_dir, output_audio_dir):
+# dataset_dirs are expected to include a class name followed by a dash and a
+# unique recording identifier (e.g. SiteA-001).
+def segment_dataset(n_folds, dataset_dirs, output_text_dir,
+                        output_audio_dir=None):
 # n_folds = 4
 # dataset_dirs = ['SiteA-24-11-16','SiteB-24-11-16','SiteC-24-11-16']
 # output_audio_dir = 'audio'
@@ -57,7 +50,7 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir, output_audio_dir):
     for fold in test_folds:
         for n, filepath in enumerate(fold):
             fold[n] = filepath[filepath.find('/')+1:] + '\t' + filepath[
-                        0:filepath.find('-')] + '\n'
+                        :filepath.find('-')] + '\n'
 
     # make list of folds to use as training for each fold used as test data
     train_folds = [unpack_list([x for x in test_folds if x not in [fold]])
@@ -71,10 +64,15 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir, output_audio_dir):
     write_fold_list(test_folds, 'fold*_test.txt', output_text_dir)
     write_fold_list(train_folds, 'fold*_train.txt', output_text_dir)
 
-    # make a folder to move audio database into
-    os.makedirs(output_audio_dir, exist_ok=True)
+    if output_audio_dir:
+        # make a folder to move audio database into
+        os.makedirs(output_audio_dir, exist_ok=True)
 
-    # move audio to database folder
-    for filepath in unpack_list(filename_list):
-        os.rename(filepath,
-                    output_audio_dir + '/' + filepath[filepath.find('/')+1:])
+        # move audio to database folder
+        for filepath in unpack_list(filename_list):
+            os.rename(filepath, output_audio_dir + '/' + filepath[
+                        filepath.find('/')+1:])
+
+        # delete old audio folders
+        for directory in dataset_dirs:
+            os.rmdir(directory)
