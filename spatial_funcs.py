@@ -7,17 +7,16 @@ import soundfile as sf
 import librosa
 from scipy import signal
 
-def f_to_mel(freq):
-    mel_freq = 1125 * np.log(1 + freq/700)
-
-    return mel_freq
-
-
-def mel_to_f(mel_freq):
-    freq = 700 * (np.exp(mel_freq/1125) - 1)
-
-    return freq
-
+# def f_to_mel(freq):
+#     mel_freq = 1125 * np.log(1 + freq/700)
+#
+#     return mel_freq
+#
+#
+# def mel_to_f(mel_freq):
+#     freq = 700 * (np.exp(mel_freq/1125) - 1)
+#
+#     return freq
 
 def multichannel_frame( audio_in, n_fft=2048, pad=False ):
 
@@ -40,21 +39,28 @@ def multichannel_frame( audio_in, n_fft=2048, pad=False ):
 
 def mel_spaced_filterbank( n_filts, low_freq, hi_freq, filt_taps, fs ):
 
-    mel_freqs = np.linspace(f_to_mel(low_freq), f_to_mel(hi_freq), n_filts+2)
 
-    filter_band_freqs = mel_to_f(mel_freqs)
+    # replace this with the librosa mel-frequency calculation function
+    # mel_freqs = np.linspace(f_to_mel(low_freq), f_to_mel(hi_freq), n_filts+2)
+
+    # filter_band_freqs = mel_to_f(mel_freqs)
+
+    filter_band_freqs = librosa.core.mel_frequencies(n_filts+2,
+                                                     low_freq, hi_freq)
 
     # filter_centres = np.mean(np.concatenate((filter_band_freqs[:-1],
     #                  filter_band_freqs[1:]), axis=1), axis=1)
 
     filters = np.array([signal.firwin(filt_taps,[filter_band_freqs[i],
-    filter_band_freqs[i+1]], pass_zero=False,nyq=fs/2) for i in range(n_filts)])
+                        filter_band_freqs[i+1]], pass_zero=False,nyq=fs/2)
+                        for i in range(n_filts)])
 
     return filters
 
 
 def extract_spatial_features(audio, fs, low_freq=20, hi_freq=20000, n_bands=42,
-                                Z_0=413.3, rho_0=1.2041, c=343.21):
+                                filt_taps=4096, Z_0=413.3, rho_0=1.2041,
+                                c=343.21):
 
     # constants to use in equations (these are approx. correct for air @ 20 C):
     # Z_0 = characteristic acoustic impedance of air
@@ -63,7 +69,6 @@ def extract_spatial_features(audio, fs, low_freq=20, hi_freq=20000, n_bands=42,
 
     # probably could do with a better way of setting low and hi freq relative to
     # fs of incoming audio
-
     filters = mel_spaced_filterbank(n_bands, low_freq, hi_freq, filt_taps, fs)
 
     filt_audio = np.array([signal.lfilter(filt, [1.0], audio, axis=0)
