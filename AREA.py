@@ -155,7 +155,7 @@ class MultiFoldClassifier(BasicAudioClassifier):
         self.data, self.indeces = self._extract_features(dataset_info)
 
         # fit scaler and scale data (exclude target_numbers column)
-        self.data[:,:-1] = self._scaler.fit_transform(self.data[:,:-1])
+        # self.data[:,:-1] = self._scaler.fit_transform(self.data[:,:-1])
 
 
     def train(self, train_info):
@@ -170,11 +170,17 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         # slice training data from main data array
         train_data = self.data[train_indeces]
+
+        # fits the scaler to training data only, then applies to whole dataset
+        # this avoids test data influencing the transform
+        train_data[:,:-1] = self._scaler.fit_transform(train_data[:,:-1])
+        self.data[:,:-1] = self._scaler.transform(self.data[:,:-1])
+
         self._fit_gmms(train_data)
         results = self._test_input(self.data, train_info, self.indeces)
 
         # find overall training accuracy percentage
-        self.train_acc = plot_confusion_matrix(train_info, results)[2]
+        self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
         print('Training complete. Classifier is ' + str(self.train_acc) +
         ' % accurate in labelling the training data.')
 
@@ -188,7 +194,7 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         results = self._test_input(self.data, test_info, self.indeces)
 
-        self.test_acc = plot_confusion_matrix(test_info, results)[2]
+        self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
         print('Training complete. Classifier is ' + str(self.test_acc) +
         ' % accurate in labelling the training data.')
 
