@@ -35,28 +35,21 @@ class BasicAudioClassifier:
         # set dataset_directory or class will assume current working directory
         self.dataset_directory = dataset_directory
 
-        # if info != '':
-        #     results = self.train(info)
-        # decided to remove the option to train on init for now
-
-
-    def train_from_textfile( self, info_file ):
-        info = extract_info(info_file)
-        results = self.train(info)
-
 
     def train( self, info ):
 
+        info = extract_info(info)
         # make list of unique labels in training data
-        self._label_list = sorted(set(labels for examples, labels in info.items()))
-        data, indeces = self._gen_audio_features(info)
+        self._label_list = sorted(set(labels
+                                    for examples, labels in info.items()))
+        data, indeces = self._extract_features(info)
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
         self._fit_gmms(data)
         results = self._test_input(data, info, indeces)
 
         # find overall training accuracy percentage
-        self.train_acc = overall_accuracy(info, results)
+        self.train_acc = plot_confusion_matrix(info, results)[2]
         print('Training complete. Classifier is ' + str(self.train_acc) +
         ' % accurate in labelling the training data.')
 
@@ -64,10 +57,11 @@ class BasicAudioClassifier:
 
 
     def classify( self, info ):
-        # call this function to classify new data after training
 
+        # call this function to classify new data after training
+        info = extract_info(info)
         # generate audio features
-        data, indeces = self._gen_audio_features(info)
+        data, indeces = self._extract_features(info)
         # scale data using pre-calculated mean and var
         data[:,:-1] = self._scaler.transform(data[:,:-1])
         # _test_input function gets scores from GMM set
@@ -77,7 +71,7 @@ class BasicAudioClassifier:
 
 ############################# 'Private' methods: ###############################
 
-    def _gen_audio_features( self, info ):
+    def _extract_features( self, info ):
 
         indeces = {}
 
@@ -88,9 +82,9 @@ class BasicAudioClassifier:
             # note librosa collapses to mono and resamples @ 22050 Hz
             audio, fs = librosa.load(self.dataset_directory + filepath)
 
-            mfccs = librosa.feature.mfcc(audio, fs) # calculate MFCC values
+            # calculate MFCC values
+            mfccs = librosa.feature.mfcc(audio, fs).T
             # swap axes so feature vectors are horizontal (time runs downwards)
-            mfccs = mfccs.swapaxes(0, 1)
 
             # append a targets column at the end of the mfcc array
             data_to_add = np.hstack((mfccs, np.array([[target]] * len(mfccs))))
@@ -146,16 +140,62 @@ class BasicAudioClassifier:
 
 ################################################################################
 ################################################################################
+class MultiFoldClassifier(BasicAudioClassifier):
 
-def test_confusion( test_data_file, classifier ):
+    def __init__(self, dataset_info, **kwargs):
+        super(MultiFoldClassifier, self).__init__(**kwargs)
 
-    info = extract_info(test_data_file)
-    results = classifier.classify(info)
-    plot_confusion_matrix(info, results)
-    accuracy = overall_accuracy(info, results)
+        # to speed up multifold testing, all audio is loaded and features
+        # calculated at the start (saves reloading all the data for each fold)
+        dataset_info = extract_info(dataset_info)
 
-    return results, accuracy
+        # make list of unique labels in data
+        self._label_list = sorted(set(labels for x, labels in dataset_info.items()))
 
+        self.data, self.indeces = self._extract_features(dataset_info)
+
+        # fit scaler and scale data (exclude target_numbers column)
+        self.data[:,:-1] = self._scaler.fit_transform(self.data[:,:-1])
+
+
+    def train(self, train_info):
+
+        # put info from text file into OrderedDict
+        train_info = extract_info(train_info)
+
+        # get all indeces of training data points and put into numpy array
+        train_indeces = np.array([np.r_[
+                        self.indeces[file][0]:self.indeces[file][1]]
+                        for file in train_info]).reshape(-1)
+
+        # slice training data from main data array
+        train_data = self.data[train_indeces]
+        self._fit_gmms(train_data)
+        results = self._test_input(self.data, train_info, self.indeces)
+
+        # find overall training accuracy percentage
+        self.train_acc = plot_confusion_matrix(train_info, results)[2]
+        print('Training complete. Classifier is ' + str(self.train_acc) +
+        ' % accurate in labelling the training data.')
+
+        return results
+
+
+    def classify(self, test_info):
+
+        # put info from text file into OrderedDict
+        test_info = extract_info(test_info)
+
+        results = self._test_input(self.data, test_info, self.indeces)
+
+        self.test_acc = plot_confusion_matrix(test_info, results)[2]
+        print('Training complete. Classifier is ' + str(self.test_acc) +
+        ' % accurate in labelling the training data.')
+
+        return results
+
+################################################################################
+################################################################################
 
 def extract_info( file_to_read ):
 
@@ -189,12 +229,39 @@ def plot_confusion_matrix( info, results ):
     return confmat, class_accuracies, total_accuracy, report
 
 
-def overall_accuracy( info, results ):
-    correct = 0
-    for entry in results:
-        if results[entry] == info[entry]:
-            correct += 1
-
-    accuracy = (correct/len(info)*100)
-
-    return accuracy
+################################################################################
+################################################################################
+# class SpatialClassifier(BasicAudioClassifier):
+#
+#     def _extract_features( self, info ):
+#
+#         indeces = {}
+#
+#         for filepath, label in info.items():
+#
+#             target = self._label_list.index(label) # numerical class indicator
+#             # load audio file
+#             # note librosa collapses to mono and resamples @ 22050 Hz
+#             audio, fs = sf.read(self.dataset_directory + filepath)
+#             print('Reading in ' + filepath + ' ...')
+#
+#             azi, elev, psi = extract_spatial_features(audio,fs)
+#             features = np.hstack((azi,elev,psi))
+#
+#             # append a targets column at the end of the mfcc array
+#             data_to_add = np.hstack((features, np.array([[target]]
+#                                         * len(features))))
+#
+#             if 'data' not in locals(): # does this variable exist yet?
+#                 indeces[filepath] = [0, len(data_to_add)]
+#                 data = data_to_add
+#             else:
+#                 indeces[filepath] = [len(data), len(data) + len(data_to_add)]
+#
+#                 # add indeces for features from current file to dictionary
+#                 data = np.vstack((data, data_to_add))
+#                 # this allows for testing classification using features
+#                 # from specific examples without having to reload audio
+#
+#         print('Feature extraction complete.')
+#         return data, indeces
