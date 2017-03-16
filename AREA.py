@@ -1,3 +1,5 @@
+import os
+import glob
 import librosa
 import numpy as np
 import soundfile as sf
@@ -45,7 +47,7 @@ class BasicAudioClassifier:
         # make list of unique labels in training data
         self._label_list = sorted(set(labels
                                     for examples, labels in info.items()))
-        data, indeces = self._extract_features(info)
+        data, indeces = self._build_dataset(info)
 
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
@@ -59,12 +61,12 @@ class BasicAudioClassifier:
         return results
 
 
-    def classify( self, info ):
+    def test( self, info ):
 
         # call this function to classify new data after training
         info = extract_info(info)
         # generate audio features
-        data, indeces = self._extract_features(info)
+        data, indeces = self._build_dataset(info)
         # scale data using pre-calculated mean and var
         data[:,:-1] = self._scaler.transform(data[:,:-1])
         # _test_input function gets scores from GMM set
@@ -77,23 +79,19 @@ class BasicAudioClassifier:
 
 ############################# 'Private' methods: ###############################
 
-    def _extract_features( self, info ):
+    def _build_dataset( self, info ):
 
         indeces = {}
 
         for filepath, label in info.items():
 
             target = self._label_list.index(label) # numerical class indicator
-            # load audio file
-            # note librosa collapses to mono and resamples @ 22050 Hz
-            audio, fs = librosa.load(self.dataset_directory + filepath)
 
-            # calculate MFCC values
-            mfccs = librosa.feature.mfcc(audio, fs).T
-            # swap axes so feature vectors are horizontal (time runs downwards)
+            features = self._extract_features(filepath)
 
             # append a targets column at the end of the mfcc array
-            data_to_add = np.hstack((mfccs, np.array([[target]] * len(mfccs))))
+            data_to_add = np.hstack((
+                            features, np.array([[target]] * len(features))))
 
             if 'data' not in locals(): # does this variable exist yet?
                 indeces[filepath] = [0, len(data_to_add)]
@@ -101,19 +99,31 @@ class BasicAudioClassifier:
             else:
                 indeces[filepath] = [len(data), len(data) + len(data_to_add)]
 
-                # add indeces for mfccs from current file to dictionary
+                # add indeces for features from current file to dictionary
                 data = np.vstack((data, data_to_add))
                 print('Added ' + filepath + ' features to the dataset.')
-                # this allows for testing classification using mfccs
+                # this allows for testing classification using features
                 # from specific examples without having to reload audio
 
-        print('Feature extraction complete.')
+        # print('Feature extraction complete.')
         return data, indeces
+
+
+    def _extract_features(self, filepath):
+        # load audio file
+        # note librosa collapses to mono and resamples @ 22050 Hz
+        audio, fs = librosa.load(self.dataset_directory + filepath)
+
+        # calculate MFCC values
+        features = librosa.feature.mfcc(audio, fs).T
+        # swap axes so feature vectors are horizontal (time runs downwards)
+
+        return features
 
 
     def _fit_gmms( self, data ):
         for label in self._label_list:
-            print('Training GMM for ' + label)
+            # print('Training GMM for ' + label)
             self._gmms[label] = GaussianMixture(n_components=10)
             label_num = self._label_list.index(label)
             # extract class data from training matrix
@@ -130,7 +140,7 @@ class BasicAudioClassifier:
         for entry in info:
             # find indeces of data from specific audio file
             start, end = indeces[entry][0], indeces[entry][1]
-            print('Testing ' + entry)
+            # print('Testing ' + entry)
 
             # slice data from large array
             data_to_evaluate = data[start:end,:-1]
@@ -148,17 +158,24 @@ class BasicAudioClassifier:
 ################################################################################
 class MultiFoldClassifier(BasicAudioClassifier):
 
-    def __init__(self, dataset_info, **kwargs):
+    def __init__(self, **kwargs):
         super(MultiFoldClassifier, self).__init__(**kwargs)
 
         # to speed up multifold testing, all audio is loaded and features
         # calculated at the start (saves reloading all the data for each fold)
-        dataset_info = extract_info(dataset_info)
+        dataset_files = [os.path.basename(x)
+                            for x in glob.glob(self.dataset_directory + '*')]
+
+        # finding labels from filenames removes the need for a dedicated
+        # 'full set' text file, but this will only work if filenames contain
+        # the labels
+        dataset_info = OrderedDict([(line, line[:line.find('-')])
+                            for line in dataset_files])
 
         # make list of unique labels in data
         self._label_list = sorted(set(labels for x, labels in dataset_info.items()))
 
-        self.data, self.indeces = self._extract_features(dataset_info)
+        self.data, self.indeces = self._build_dataset(dataset_info)
 
 
     def train(self, train_info):
@@ -191,7 +208,7 @@ class MultiFoldClassifier(BasicAudioClassifier):
         ' % accurate in labelling the training data.')
 
 
-    def classify(self, test_info):
+    def test(self, test_info):
 
         # put info from text file into OrderedDict
         test_info = extract_info(test_info)
@@ -220,42 +237,19 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 ################################################################################
 
-    def _extract_features( self, info ):
+    def _extract_features(self, filepath):
 
-        indeces = {}
+        audio, fs = sf.read(self.dataset_directory + filepath)
+        # print('Reading in ' + filepath + ' ...')
 
-        for filepath, label in info.items():
+        # hi_freq provided to limit frequency range we are interested in
+        # (low frequcies usually of interest). filt_taps can probably be
+        # fixed in the future after some testing
+        azi, elev, psi = extract_spatial_features(audio,fs,hi_freq=self.hi_freq,
+                            n_bands=self.n_bands,filt_taps=self.filt_taps)
+        features = np.hstack((azi,elev,psi))
 
-            target = self._label_list.index(label) # numerical class indicator
-            # load audio file
-            audio, fs = sf.read(self.dataset_directory + filepath)
-            print('Reading in ' + filepath + ' ...')
-
-            # hi_freq provided to limit frequency range we are interested in
-            # (low frequcies usually of interest). filt_taps can probably be
-            # fixed in the future after some testing
-            azi, elev, psi = extract_spatial_features(audio,fs,
-                                hi_freq=self.hi_freq,n_bands=self.n_bands,
-                                filt_taps=self.filt_taps)
-            features = np.hstack((azi,elev,psi))
-
-            # append a targets column at the end of the mfcc array
-            data_to_add = np.hstack((features, np.array([[target]]
-                                        * len(features))))
-
-            if 'data' not in locals(): # does this variable exist yet?
-                indeces[filepath] = [0, len(data_to_add)]
-                data = data_to_add
-            else:
-                indeces[filepath] = [len(data), len(data) + len(data_to_add)]
-
-                # add indeces for features from current file to dictionary
-                data = np.vstack((data, data_to_add))
-                # this allows for testing classification using features
-                # from specific examples without having to reload audio
-
-        print('Feature extraction complete.')
-        return data, indeces
+        return features
 
 
 ################################################################################
@@ -264,7 +258,7 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 # class SpatialClassifier(BasicAudioClassifier):
 #
-#     def _extract_features( self, info ):
+#     def _build_dataset( self, info ):
 #
 #         indeces = {}
 #
