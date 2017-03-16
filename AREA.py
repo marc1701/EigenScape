@@ -3,6 +3,7 @@ import glob
 import librosa
 import numpy as np
 import soundfile as sf
+import progressbar as pb
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix
@@ -83,7 +84,14 @@ class BasicAudioClassifier:
 
         indeces = {}
 
-        for filepath, label in info.items():
+        print('Generating feature dataset from audio files...')
+
+        progbar = pb.ProgressBar(max_value=len(info))
+        progbar.start()
+
+        for n, (filepath, label) in enumerate(info.items()):
+
+            progbar.update(n)
 
             target = self._label_list.index(label) # numerical class indicator
 
@@ -101,10 +109,10 @@ class BasicAudioClassifier:
 
                 # add indeces for features from current file to dictionary
                 data = np.vstack((data, data_to_add))
-                print('Added ' + filepath + ' features to the dataset.')
                 # this allows for testing classification using features
                 # from specific examples without having to reload audio
 
+        progbar.finish()
         # print('Feature extraction complete.')
         return data, indeces
 
@@ -122,13 +130,22 @@ class BasicAudioClassifier:
 
 
     def _fit_gmms( self, data ):
-        for label in self._label_list:
-            # print('Training GMM for ' + label)
+
+        print('Fitting GMMs to data classes...')
+        progbar = pb.ProgressBar(max_value=len(self._label_list))
+        progbar.start()
+
+        for n, label in enumerate(self._label_list):
+
+            progbar.update(n)
+
             self._gmms[label] = GaussianMixture(n_components=10)
             label_num = self._label_list.index(label)
             # extract class data from training matrix
             label_data = data[data[:,-1] == label_num,:-1]
             self._gmms[label].fit(label_data) # train GMMs
+
+        progbar.finish()
 
 
     def _test_input( self, data, info, indeces ):
@@ -164,16 +181,21 @@ class MultiFoldClassifier(BasicAudioClassifier):
         # to speed up multifold testing, all audio is loaded and features
         # calculated at the start (saves reloading all the data for each fold)
         dataset_files = [os.path.basename(x)
-                            for x in glob.glob(self.dataset_directory + '*')]
+                            for x in glob.glob(
+                            self.dataset_directory + '*.wav')]
 
         # finding labels from filenames removes the need for a dedicated
         # 'full set' text file, but this will only work if filenames contain
         # the labels
+
+        # we could also remove the need to specify the full set file, but still
+        # require it (which is probably good practise tbh)
         dataset_info = OrderedDict([(line, line[:line.find('-')])
                             for line in dataset_files])
 
         # make list of unique labels in data
-        self._label_list = sorted(set(labels for x, labels in dataset_info.items()))
+        self._label_list = sorted(set(labels
+                            for x, labels in dataset_info.items()))
 
         self.data, self.indeces = self._build_dataset(dataset_info)
 
@@ -240,56 +262,18 @@ class DiracSpatialClassifier(MultiFoldClassifier):
     def _extract_features(self, filepath):
 
         audio, fs = sf.read(self.dataset_directory + filepath)
-        # print('Reading in ' + filepath + ' ...')
 
         # hi_freq provided to limit frequency range we are interested in
         # (low frequcies usually of interest). filt_taps can probably be
         # fixed in the future after some testing
         azi, elev, psi = extract_spatial_features(audio,fs,hi_freq=self.hi_freq,
                             n_bands=self.n_bands,filt_taps=self.filt_taps)
+
         features = np.hstack((azi,elev,psi))
 
         return features
 
 
-################################################################################
-################################################################################
-
-
-# class SpatialClassifier(BasicAudioClassifier):
-#
-#     def _build_dataset( self, info ):
-#
-#         indeces = {}
-#
-#         for filepath, label in info.items():
-#
-#             target = self._label_list.index(label) # numerical class indicator
-#             # load audio file
-#             # note librosa collapses to mono and resamples @ 22050 Hz
-#             audio, fs = sf.read(self.dataset_directory + filepath)
-#             print('Reading in ' + filepath + ' ...')
-#
-#             azi, elev, psi = extract_spatial_features(audio,fs)
-#             features = np.hstack((azi,elev,psi))
-#
-#             # append a targets column at the end of the mfcc array
-#             data_to_add = np.hstack((features, np.array([[target]]
-#                                         * len(features))))
-#
-#             if 'data' not in locals(): # does this variable exist yet?
-#                 indeces[filepath] = [0, len(data_to_add)]
-#                 data = data_to_add
-#             else:
-#                 indeces[filepath] = [len(data), len(data) + len(data_to_add)]
-#
-#                 # add indeces for features from current file to dictionary
-#                 data = np.vstack((data, data_to_add))
-#                 # this allows for testing classification using features
-#                 # from specific examples without having to reload audio
-#
-#         print('Feature extraction complete.')
-#         return data, indeces
 ################################################################################
 ################################################################################
 
