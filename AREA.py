@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 
-from spatial_funcs import *
+from spatial import *
 
 import pandas as pd
 import seaborn as sn
@@ -46,8 +46,8 @@ class BasicAudioClassifier:
 
         info = extract_info(info)
         # make list of unique labels in training data
-        self._label_list = sorted(set(labels
-                                    for examples, labels in info.items()))
+
+        self._label_list = sorted(set(labels for x, labels in info.items()))
         data, indeces = self._build_dataset(info)
 
         # fit scaler and scale training data (exclude target_numbers column)
