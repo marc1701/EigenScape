@@ -8,11 +8,11 @@ def unpack_list(x):
     unpacked = [i for y in x for i in y]
     return unpacked
 
-def write_fold_list(fold_list, name_format, directory):
+def write_file_list(file_list, name_format, directory):
     # make a directory if it doesn't already exist
     os.makedirs(directory, exist_ok=True)
 
-    for n, fold in enumerate(fold_list):
+    for n, fold in enumerate(file_list):
         filename = '/' + name_format.replace('*', str(n+1))
         txtfile = open(directory + filename,'w')
         txtfile.writelines(fold)
@@ -49,8 +49,8 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir,
     # after a tab. Class label is taken from directory name (before'-').
     for fold in test_folds:
         for n, filepath in enumerate(fold):
-            fold[n] = filepath[filepath.find('/')+1:] + '\t' + filepath[
-                        :filepath.find('-')] + '\n'
+            fold[n] = (filepath[filepath.find('/')+1:] + '\t'
+                       + filepath[:filepath.find('-')] + '\n')
 
     # make list of folds to use as training for each fold used as test data
     train_folds = [unpack_list([x for x in test_folds if x not in [fold]])
@@ -61,8 +61,8 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir,
         fold.sort()
 
     # write results out to text files
-    write_fold_list(test_folds, 'fold*_test.txt', output_text_dir)
-    write_fold_list(train_folds, 'fold*_train.txt', output_text_dir)
+    write_file_list(test_folds, 'fold*_test.txt', output_text_dir)
+    write_file_list(train_folds, 'fold*_train.txt', output_text_dir)
 
     if output_audio_dir:
         # make a folder to move audio database into
@@ -76,3 +76,13 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir,
         # delete old audio folders
         for directory in dataset_dirs:
             os.rmdir(directory)
+
+        # write a text file listing the whole dataset
+        allfiles_list = [os.path.basename(x)
+                         for x in glob.glob(output_audio_dir + '/*')]
+
+        for n, filepath in enumerate(allfiles_list):
+            allfiles_list[n] = (filepath[filepath.find('/')+1:] + '\t'
+                                + filepath[:filepath.find('-')] + '\n')
+
+        write_file_list([allfiles_list], 'full_dataset.txt', output_audio_dir)

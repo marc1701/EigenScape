@@ -31,7 +31,7 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
     # Unpack audio from list to numpy array.
     audio = np.hstack([sound for sound in audio_list])
     # Unpack fs values from list.
-    fs = [fs[1] for fs in sf_out]
+    fs = [fs for (audio,fs) in sf_out]
 
     # Check we have 4 channels of audio (B-Format).
     if audio.shape[-1] != 4:
@@ -74,6 +74,8 @@ def bformat_segment(file_list, output_prefix, segment_length=30,
     os.makedirs(output_prefix, exist_ok=True)
 
     # Save segmented audio files to directory.
+    n_digits = len(str(len(segments)))
     for n, segment in enumerate(segments, start=filenum_start):
-         filepath = output_prefix + '/' + output_prefix + '.' + str(n) + '.wav'
+         filepath = (output_prefix + '/' + output_prefix + '.'
+                     + str(n).zfill(n_digits) + '.wav')
          sf.write(filepath, segment, target_fs, 'PCM_24')
