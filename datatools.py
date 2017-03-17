@@ -16,6 +16,13 @@ import random
 #
 # In the future this could be expanded to segment n-channel audio (e.g. for use
 # with eigenmike recordings).
+#
+# Usage:
+# bformat_segment(['../FMS Selected/Park Row/150626_356_st12.wav',
+#  '../FMS Selected/Park Row/150626_356_st34.wav'], 'Park-')
+#
+# segment_dataset(3, ['Albion-','Dalby-','Fox-','Hole-','Park-'],
+#                     'eval_setup','audio')
 
 def bformat_segment(file_list, output_prefix, segment_length=30,
                     target_fs=44100, trim_length=20, filenum_start=1):
@@ -104,7 +111,7 @@ def write_file_list(file_list, name_format, directory):
 # dataset_dirs are expected to include a class name followed by a dash and a
 # unique recording identifier (e.g. SiteA-001).
 def segment_dataset(n_folds, dataset_dirs, output_text_dir,
-                        output_audio_dir=None):
+                    output_audio_dir=None):
 # n_folds = 4
 # dataset_dirs = ['SiteA-24-11-16','SiteB-24-11-16','SiteC-24-11-16']
 # output_audio_dir = 'audio'
@@ -122,8 +129,8 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir,
 
     # take slices of each class from filename_list
     chunks = [[category[i*fold_len:(i+1)*fold_len]
-                for category in filename_list]
-                for i in range(n_folds)]
+               for category in filename_list]
+               for i in range(n_folds)]
 
     # unpack each chunk to make list of folds
     test_folds = [unpack_list(x) for x in chunks]
@@ -153,8 +160,8 @@ def segment_dataset(n_folds, dataset_dirs, output_text_dir,
 
         # move audio to database folder
         for filepath in unpack_list(filename_list):
-            os.rename(filepath, output_audio_dir + '/' + filepath[
-                        filepath.find('/')+1:])
+            os.rename(filepath, output_audio_dir + '/'
+                      + filepath[filepath.find('/')+1:])
 
         # delete old audio folders
         for directory in dataset_dirs:

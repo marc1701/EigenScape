@@ -11,6 +11,7 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 
 from spatial import *
+from datatools import *
 
 import pandas as pd
 import seaborn as sn
