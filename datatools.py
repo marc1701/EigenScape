@@ -1,5 +1,6 @@
 import numpy as np
 import soundfile as sf
+import progressbar as pb
 import librosa
 import os
 import glob
@@ -18,20 +19,50 @@ import random
 # with eigenmike recordings).
 #
 # Usage:
-# bformat_segment(['../FMS Selected/Park Row/150626_356_st12.wav',
-#  '../FMS Selected/Park Row/150626_356_st34.wav'], 'Park-')
+# bformat_segment('Park-', '../input_audio')
 #
 # segment_dataset(3, ['Albion-','Dalby-','Fox-','Hole-','Park-'],
 #                     'eval_setup','audio')
+#
+# area.datatools.make_dataset(2, (('Forest-',
+#                                 '../FMS B-Format/Site 1 - Dalby Forest'),
+#                                 ('Lake-',
+#                                 '../FMS B-Format/Site 2 - Dalby Forest Lake'),
+#                                 ('Horcum-',
+#                                 '../FMS B-Format/Site 3 - Hole of Horcum'),
+#                                 ('Street-',
+#                                 '../FMS B-Format/Site 6 - Albion St. Leeds'),
+#                                 ('Square-',
+#                                 '../FMS B-Format/Site 8 - Park Square, Leeds')),
+#                            'eval_setup', 'audio')
 
-def bformat_segment(file_list, output_prefix, segment_length=30,
+def make_dataset(n_folds, recording_info, output_text_dir, output_audio_dir,
+                 **kwargs):
+
+    progbar = pb.ProgressBar(max_value=len(recording_info))
+    progbar.start()
+
+    for n, (prefix, directory) in enumerate(recording_info):
+        progbar.update(n)
+        bformat_segment(prefix, directory, **kwargs)
+
+    progbar.finish()
+
+    segment_dataset(n_folds, [prefix for (prefix, directory) in recording_info],
+                    output_text_dir, output_audio_dir)
+
+
+def bformat_segment(output_prefix, input_directory, segment_length=30,
                     target_fs=44100, trim_length=20, filenum_start=1):
+
+    file_list = glob.glob(input_directory + '/*.wav')
 
     # Save output from sf.read as list.
     sf_out = [sf.read(sound) for sound in file_list]
 
     # Extract the audio arrays to a new list.
-    audio_list = [sound[0] for sound in sf_out]
+    audio_list = [audio for (audio,fs) in sf_out]
+
     # Deal with one-dimensional numpy arrays in case of monaural audio
     for i, element in enumerate(audio_list):
         if element.ndim < 2:
