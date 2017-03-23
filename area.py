@@ -19,20 +19,12 @@ import matplotlib.pyplot as plt
 
 
 class BasicAudioClassifier:
-    ''' Basic GMM-MFCC audio classifier along the lines of the baseline model
-    described in DCASE 2015 '''
-
-    # @classmethod
-    # def init_from_textfile( cls, info_file, dataset_directory='' ):
-    #
-    #     info = extract_info(info_file)
-    #
-    #     return cls(info, dataset_directory)
-
+    ''' Basic GMM-MFCC audio classifier along the lines of the baseline
+    model described in DCASE 2015 '''
 
     def __init__( self, dataset_directory='' ):
 
-        self._label_list = [] # set up list of class labels
+        # self._label_list = [] # set up list of class labels
         self._gmms = {} # initialise dictionary for GMMs
 
         # set dataset_directory or class will assume current working directory
@@ -76,7 +68,7 @@ class BasicAudioClassifier:
 
         self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
-        ' % accurate in labelling the training data.')
+        ' % accurate in labelling the test data.')
 
 
 ############################# 'Private' methods: ###############################
@@ -210,7 +202,6 @@ class MultiFoldClassifier(BasicAudioClassifier):
         train_indeces = np.array([np.r_[
                         self.indeces[file][0]:self.indeces[file][1]]
                         for file in train_info]).reshape(-1)
-
         # slice training data from main data array
         train_data = np.copy(self.data[train_indeces])
         # fit the scaler to training data only
@@ -227,8 +218,8 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         # find overall training accuracy percentage
         self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
-        print('Training complete. Classifier is ' + str(self.train_acc) +
-        ' % accurate in labelling the training data.')
+        print('Training complete. Classifier is ' + str(self.train_acc)
+              + ' % accurate in labelling the training data.')
 
 
     def test(self, test_info):
@@ -240,7 +231,7 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
-        ' % accurate in labelling the training data.')
+        ' % accurate in labelling the test data.')
 
 
 ################################################################################
@@ -249,13 +240,33 @@ class MultiFoldClassifier(BasicAudioClassifier):
 class DiracSpatialClassifier(MultiFoldClassifier):
     """docstring for SpatialClassifier.MultiFoldClassifier"""
 
-    def __init__(self, hi_freq=20000, n_bands=42, filt_taps=128, **kwargs):
+    def __init__(self, hi_freq=11025, n_bands=20, filt_taps=2048, **kwargs):
 
         self.hi_freq = hi_freq
         self.n_bands = n_bands
         self.filt_taps = filt_taps
 
         super(DiracSpatialClassifier, self).__init__(**kwargs)
+
+
+    def save_data(self, filename):
+
+        # write out csv with sensible number formatting (minimises file size)
+        np.savetxt(filename + '_data.csv', self.data, delimiter=',',
+                   fmt=','.join(['%d']*(self.n_bands*2)) + ','
+                        + ','.join(['%1.3f']*self.n_bands) + ',%d')
+
+        # write out dictionary of file clip indeces (readable back using eval)
+        with open(filename + '_indeces.txt','w') as out_file:
+            out_file.write('{')
+            for entry, vals in self.indeces.items():
+                out_file.write("'"+entry+"'"+':'+str(vals)+', ')
+            out_file.write('}')
+
+        # write out list of labels
+        with open(filename + '_labels.txt','w') as out_file:
+            for label in self._label_list:
+                out_file.write(label + '\n')
 
 
 ################################################################################
@@ -278,6 +289,22 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 ################################################################################
 ################################################################################
 
+class ExternalDataClassifier(MultiFoldClassifier):
+
+    def __init__(self, data, indeces, labels_file):
+
+        self.data = data #np.loadtxt(csv_data, delimiter=',')
+        self.indeces = eval(open(indeces,'r').read())
+
+        with open(labels_file,'r') as labels:
+            self._label_list = [line.rstrip() for line in labels.readlines()]
+
+        BasicAudioClassifier.__init__(self)
+
+
+################################################################################
+################################################################################
+
 
 def extract_info( file_to_read ):
 
@@ -288,17 +315,9 @@ def extract_info( file_to_read ):
     # and is the preferred input format for BasicAudioClassifier
 
 
-# def extract_info(file_to_read):
-#
-#     with open(file_to_read) as info_file:
-#         info = OrderedDict([(line, line[:line.find('-')]) for line in info_file])
-#
-# new version of extract_info function to work with info files containing only
-# file names (file names will contain labels)
-
 def plot_confusion_matrix( info, results ):
 # this function extracts lists of classes from OrderedDicts passed to it
-# is this doing too much now
+# is this doing too much now?
 
     true = [label for entry, label in info.items()]
     predictions = [label for entry, label in results.items()]
