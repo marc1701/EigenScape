@@ -17,7 +17,7 @@ for path in filepaths:
     label_start_idx = path.find('c/') + 2
     label_end_idx = path.find('-')
     # os.path.basename cannot be used here
-    
+
     label = path[label_start_idx:label_end_idx]
     recording_num = path[label_end_idx + 2]
 
@@ -26,3 +26,4 @@ for path in filepaths:
     out_path = output_dir + '/' + out_fname
 
     sf.write(out_path, trimmed_audio, fs, 'PCM_24')
+    # TEST
