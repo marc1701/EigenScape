@@ -11,7 +11,7 @@ for path in filepaths:
 
     first_order_audio = audio[:, :4]
 
-    filename = os.path.basename(path)
+    filename = os.path.basename(path) # extract filename from path
 
     out_path = output_dir + filename
     sf.write(out_path, first_order_audio, fs, 'PCM_24')
