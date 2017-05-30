@@ -26,3 +26,4 @@ for path in filepaths:
     out_path = output_dir + '/' + out_fname
 
     sf.write(out_path, trimmed_audio, fs, 'PCM_24')
+#TEST
