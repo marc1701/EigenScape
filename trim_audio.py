@@ -16,6 +16,7 @@ for path in filepaths:
 
     label_start_idx = path.find('c/') + 2
     label_end_idx = path.find('-')
+    # can't use os.path.basename here
 
     label = path[label_start_idx:label_end_idx]
     recording_num = path[label_end_idx + 2]
