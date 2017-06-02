@@ -38,8 +38,8 @@ class BasicAudioClassifier:
     def train( self, info ):
 
         info = extract_info(info)
-        # make list of unique labels in training data
 
+        # make list of unique labels in training data
         self._label_list = sorted(set(labels for x, labels in info.items()))
         data, indeces = self._build_dataset(info)
 
@@ -308,8 +308,12 @@ class ExternalDataClassifier(MultiFoldClassifier):
 
 def extract_info( file_to_read ):
 
-    with open(file_to_read) as info_file:
-        info = OrderedDict(line.split() for line in info_file)
+    with open('./fold_info/fold1_train.txt') as info_file:
+        info = OrderedDict([line.rstrip('\n'), line[:line.find('.')]]
+                            for line in info_file)
+
+    # with open(file_to_read) as info_file:
+    #     info = OrderedDict(line.split() for line in info_file)
 
     return info # info is a dictionary with filenames and class labels
     # and is the preferred input format for BasicAudioClassifier

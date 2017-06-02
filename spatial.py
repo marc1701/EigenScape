@@ -47,7 +47,7 @@ def mel_spaced_filterbank( n_filts, low_freq, hi_freq, filt_taps, fs ):
 
 def extract_spatial_features(audio, fs, low_freq=0, hi_freq=None, n_bands=42,
                                 filt_taps=4096, Z_0=413.3, rho_0=1.2041,
-                                c=343.21):
+                                c=343.21, ordering='ACN'):
 
     # constants to use in equations (these are approx. correct for air @ 20 C):
     # Z_0 = characteristic acoustic impedance of air
@@ -65,6 +65,10 @@ def extract_spatial_features(audio, fs, low_freq=0, hi_freq=None, n_bands=42,
 
     # multiband calculation of u (velocity):
     u = - filt_audio[:,:,1:] / (Z_0 * np.sqrt(2))
+
+    # re-order ACN format to FuMa (YZX to XYZ)
+    if ordering == 'ACN':
+        u = np.roll(u,1)
 
     p = filt_audio[:,:,0] # p = sound pressure (W)
 
