@@ -74,10 +74,9 @@ class BasicAudioClassifier:
 ############################# 'Private' methods: ###############################
 
     def _build_dataset( self, info ):
+        # print('Generating feature dataset from audio files...')
 
         indeces = {}
-
-        print('Generating feature dataset from audio files...')
 
         progbar = pb.ProgressBar(max_value=len(info))
         progbar.start()
@@ -124,7 +123,7 @@ class BasicAudioClassifier:
 
     def _fit_gmms( self, data ):
 
-        print('Fitting GMMs to data classes...')
+        # print('Fitting GMMs to data classes...')
         progbar = pb.ProgressBar(max_value=len(self._label_list))
         progbar.start()
 
@@ -150,9 +149,8 @@ class BasicAudioClassifier:
         for entry in info:
             # find indeces of data from specific audio file
             start, end = indeces[entry][0], indeces[entry][1]
-            # print('Testing ' + entry)
 
-            # slice data from large array
+            # slice data from large arrays
             data_to_evaluate = data[start:end,:-1]
 
             for label, gmm in self._gmms.items():
@@ -181,10 +179,8 @@ class MultiFoldClassifier(BasicAudioClassifier):
         # 'full set' text file, but this will only work if filenames contain
         # the labels
 
-        # we could also remove the need to specify the full set file, but still
-        # require it (which is probably good practise tbh)
-        dataset_info = OrderedDict([(line, line[:line.find('-')])
-                            for line in dataset_files])
+        dataset_info = OrderedDict([line, line[:line.find('.')]]
+                            for line in dataset_files)
 
         # make list of unique labels in data
         self._label_list = sorted(set(labels
@@ -308,7 +304,7 @@ class ExternalDataClassifier(MultiFoldClassifier):
 
 def extract_info( file_to_read ):
 
-    with open('./fold_info/fold1_train.txt') as info_file:
+    with open(file_to_read) as info_file:
         info = OrderedDict([line.rstrip('\n'), line[:line.find('.')]]
                             for line in info_file)
 
@@ -327,6 +323,8 @@ def plot_confusion_matrix( info, results ):
     predictions = [label for entry, label in results.items()]
 
     label_list = sorted(set(true + predictions))
+    label_abbr = [''.join(caps for caps in label if caps.isupper())
+                    for label in label_list]
     report = classification_report(true, predictions, label_list)
 
     confmat = confusion_matrix(true, predictions)
@@ -334,7 +332,7 @@ def plot_confusion_matrix( info, results ):
     class_accuracies = dict(zip(label_list, accuracies))
     total_accuracy = confmat.diagonal().sum() / confmat.sum()
 
-    dataframe_confmat = pd.DataFrame(confmat, label_list, label_list)
+    dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
     plt.figure(figsize = (10,7))
     sn.heatmap(dataframe_confmat, annot=True)
     plt.show()
