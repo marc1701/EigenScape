@@ -287,9 +287,9 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 class ExternalDataClassifier(MultiFoldClassifier):
 
-    def __init__(self, data, indeces, labels_file):
+    def __init__(self, csv_data, indeces, labels_file):
 
-        self.data = data #np.loadtxt(csv_data, delimiter=',')
+        self.data = np.loadtxt(csv_data, delimiter=',')
         self.indeces = eval(open(indeces,'r').read())
 
         with open(labels_file,'r') as labels:
