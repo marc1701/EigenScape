@@ -175,6 +175,9 @@ class MultiFoldClassifier(BasicAudioClassifier):
                             for x in glob.glob(
                             self.dataset_directory + '*.wav')]
 
+        dataset_files.sort()
+        # put files in alphabetical / numeric order
+
         # finding labels from filenames removes the need for a dedicated
         # 'full set' text file, but this will only work if filenames contain
         # the labels
