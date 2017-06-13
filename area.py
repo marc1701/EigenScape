@@ -112,11 +112,13 @@ class BasicAudioClassifier:
     def _extract_features(self, filepath):
         # load audio file
         # note librosa collapses to mono and resamples @ 22050 Hz
-        audio, fs = librosa.load(self.dataset_directory + filepath)
+        # audio, fs = librosa.load(self.dataset_directory + filepath)
+        audio, fs = sf.read(self.dataset_directory + filepath)
 
         # calculate MFCC values
-        features = librosa.feature.mfcc(audio, fs).T
+        features = librosa.feature.mfcc(audio, fs, n_mfcc=40).T[:,:20]
         # swap axes so feature vectors are horizontal (time runs downwards)
+        # keep only first 20 MFCCs 
 
         return features
 
@@ -239,7 +241,8 @@ class MultiFoldClassifier(BasicAudioClassifier):
 class DiracSpatialClassifier(MultiFoldClassifier):
     """docstring for SpatialClassifier.MultiFoldClassifier"""
 
-    def __init__(self, hi_freq=11025, n_bands=20, filt_taps=2048, **kwargs):
+    def __init__(self, hi_freq=12000, n_bands=20, filt_taps=2048, **kwargs):
+        # hi_freq = 48000 / 4  -> (nyquist / 2)
 
         self.hi_freq = hi_freq
         self.n_bands = n_bands
