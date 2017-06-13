@@ -111,9 +111,8 @@ class BasicAudioClassifier:
 
     def _extract_features(self, filepath):
         # load audio file
-        # note librosa collapses to mono and resamples @ 22050 Hz
-        # audio, fs = librosa.load(self.dataset_directory + filepath)
         audio, fs = sf.read(self.dataset_directory + filepath)
+        audio = audio[:,0] # keep only first channel (omni)
 
         # calculate MFCC values
         features = librosa.feature.mfcc(audio, fs, n_mfcc=40).T[:,:20]
