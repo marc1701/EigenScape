@@ -22,14 +22,6 @@ class BasicAudioClassifier:
     ''' Basic GMM-MFCC audio classifier along the lines of the baseline model
     described in DCASE 2015 '''
 
-    # @classmethod
-    # def init_from_textfile( cls, info_file, dataset_directory='' ):
-    #
-    #     info = extract_info(info_file)
-    #
-    #     return cls(info, dataset_directory)
-
-
     def __init__( self, dataset_directory='' ):
 
         self._label_list = [] # set up list of class labels
