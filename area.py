@@ -240,6 +240,8 @@ class DiracSpatialClassifier(MultiFoldClassifier):
     """docstring for SpatialClassifier.MultiFoldClassifier"""
 
     def __init__(self, hi_freq=11025, n_bands=20, filt_taps=2048, **kwargs):
+        # 11025 = 44100 // 4 (half nyquist)
+        # must remember to change this when fs changes
 
         self.hi_freq = hi_freq
         self.n_bands = n_bands
