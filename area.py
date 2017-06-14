@@ -117,7 +117,7 @@ class BasicAudioClassifier:
         # calculate MFCC values
         features = librosa.feature.mfcc(audio, fs, n_mfcc=40).T[:,:20]
         # swap axes so feature vectors are horizontal (time runs downwards)
-        # keep only first 20 MFCCs 
+        # keep only first 20 MFCCs
 
         return features
 
@@ -242,6 +242,7 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
     def __init__(self, hi_freq=12000, n_bands=20, filt_taps=2048, **kwargs):
         # hi_freq = 48000 / 4  -> (nyquist / 2)
+        # must remember to change this when fs changes
 
         self.hi_freq = hi_freq
         self.n_bands = n_bands
