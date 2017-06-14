@@ -45,8 +45,8 @@ def mel_spaced_filterbank( n_filts, low_freq, hi_freq, filt_taps, fs ):
     return filters
 
 
-def extract_spatial_features(audio, fs, low_freq=0, hi_freq=None, n_bands=42,
-                                filt_taps=4096, Z_0=413.3, rho_0=1.2041,
+def extract_spatial_features(audio, fs, low_freq=0, hi_freq=None, n_bands=20,
+                                filt_taps=2048, Z_0=413.3, rho_0=1.2041,
                                 c=343.21, ordering='ACN'):
 
     # constants to use in equations (these are approx. correct for air @ 20 C):

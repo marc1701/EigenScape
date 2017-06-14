@@ -1,6 +1,7 @@
 import os
 import glob
 import librosa
+import resampy
 import numpy as np
 import soundfile as sf
 import progressbar as pb
@@ -111,8 +112,12 @@ class BasicAudioClassifier:
 
     def _extract_features(self, filepath):
         # load audio file
-        # note librosa collapses to mono and resamples @ 22050 Hz
-        audio, fs = librosa.load(self.dataset_directory + filepath)
+        # note librosa collapses to mono - auto resample not used
+        audio, fs = librosa.load(self.dataset_directory + filepath, sr=None)
+
+        # resampling here @ to fs/2
+        audio = librosa.core.resample(audio, fs, fs/2)
+        fs = fs/2
 
         # calculate MFCC values
         features = librosa.feature.mfcc(audio, fs).T
@@ -239,7 +244,7 @@ class MultiFoldClassifier(BasicAudioClassifier):
 class DiracSpatialClassifier(MultiFoldClassifier):
     """docstring for SpatialClassifier.MultiFoldClassifier"""
 
-    def __init__(self, hi_freq=11025, n_bands=20, filt_taps=2048, **kwargs):
+    def __init__(self, hi_freq=None, n_bands=20, filt_taps=2048, **kwargs):
         # 11025 = 44100 // 4 (half nyquist)
         # must remember to change this when fs changes
 
@@ -275,6 +280,8 @@ class DiracSpatialClassifier(MultiFoldClassifier):
     def _extract_features(self, filepath):
 
         audio, fs = sf.read(self.dataset_directory + filepath)
+        audio = resampy.resample(audio, fs, fs/2, axis=0)
+        fs = fs/2 # update fs after resampling
 
         # hi_freq provided to limit frequency range we are interested in
         # (low frequcies usually of interest). filt_taps can probably be
