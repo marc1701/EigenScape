@@ -239,9 +239,10 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
 
     def save_data(self, filename):
-        # write out csv with sensible number formatting (minimises file size)
-        np.savetxt('mfcc' + '_data.csv', mfcc_classifier.data,
-                    delimiter=',', fmt='%1.3f')
+        # write out file with sensible number formatting (minimises file size)
+        np.savetxt(filename + '_data.txt', self.data, fmt='%1.4f')
+        # not sure now about this formatting - might be an idea to save out
+        # multiple resolutions and see where there stops being changes
 
         self.save_metadata(filename)
 
@@ -267,8 +268,6 @@ class DiracSpatialClassifier(MultiFoldClassifier):
     """docstring for SpatialClassifier.MultiFoldClassifier"""
 
     def __init__(self, hi_freq=None, n_bands=20, filt_taps=2048, **kwargs):
-        # 11025 = 44100 // 4 (half nyquist)
-        # must remember to change this when fs changes
 
         self.hi_freq = hi_freq
         self.n_bands = n_bands
@@ -279,10 +278,10 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
     def save_data(self, filename):
 
-        # write out csv with sensible number formatting (minimises file size)
-        np.savetxt(filename + '_data.csv', self.data, delimiter=',',
-                   fmt=','.join(['%d']*(self.n_bands*2)) + ','
-                        + ','.join(['%1.3f']*self.n_bands) + ',%d')
+        # write out file with sensible number formatting (minimises file size)
+        np.savetxt(filename+ '_data.txt', self.data,
+                   fmt=['%d']*(self.n_bands*2)
+                   + ['%1.3f']*(self.n_bands) + ['%d'])
 
         self.save_metadata(filename)
 
@@ -310,9 +309,9 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 class ExternalDataClassifier(MultiFoldClassifier):
 
-    def __init__(self, csv_data, indeces, labels_file):
+    def __init__(self, ext_data, indeces, labels_file):
 
-        self.data = np.loadtxt(csv_data, delimiter=',')
+        self.data = np.loadtxt(ext_data)
         self.indeces = eval(open(indeces,'r').read())
 
         with open(labels_file,'r') as labels:
