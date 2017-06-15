@@ -238,6 +238,28 @@ class MultiFoldClassifier(BasicAudioClassifier):
         ' % accurate in labelling the test data.')
 
 
+    def save_data(self, filename):
+        # write out csv with sensible number formatting (minimises file size)
+        np.savetxt('mfcc' + '_data.csv', mfcc_classifier.data,
+                    delimiter=',', fmt='%1.3f')
+
+        self.save_metadata(filename)
+
+
+    def save_metadata(self, filename):
+
+        # write out dictionary of file clip indeces (readable back using eval)
+        with open(filename + '_indeces.txt','w') as out_file:
+            out_file.write('{')
+            for entry, vals in self.indeces.items():
+                out_file.write("'"+entry+"'"+':'+str(vals)+', ')
+            out_file.write('}')
+
+        # write out list of labels
+        with open(filename + '_labels.txt','w') as out_file:
+            for label in self._label_list:
+                out_file.write(label + '\n')
+
 ################################################################################
 ################################################################################
 
@@ -262,18 +284,7 @@ class DiracSpatialClassifier(MultiFoldClassifier):
                    fmt=','.join(['%d']*(self.n_bands*2)) + ','
                         + ','.join(['%1.3f']*self.n_bands) + ',%d')
 
-        # write out dictionary of file clip indeces (readable back using eval)
-        with open(filename + '_indeces.txt','w') as out_file:
-            out_file.write('{')
-            for entry, vals in self.indeces.items():
-                out_file.write("'"+entry+"'"+':'+str(vals)+', ')
-            out_file.write('}')
-
-        # write out list of labels
-        with open(filename + '_labels.txt','w') as out_file:
-            for label in self._label_list:
-                out_file.write(label + '\n')
-
+        self.save_metadata(filename)
 
 ################################################################################
 
