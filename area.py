@@ -9,7 +9,7 @@ from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, label_binarize
 
 from spatial import *
 import datatools
@@ -47,7 +47,7 @@ class BasicAudioClassifier:
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
         self._fit_gmms(data)
-        results = self._test_input(data, info, indeces)
+        results, _, _  = self._test_input(data, info, indeces)
 
         # find overall training accuracy percentage
         self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
@@ -65,7 +65,7 @@ class BasicAudioClassifier:
         # scale data using pre-calculated mean and var
         data[:,:-1] = self._scaler.transform(data[:,:-1])
         # _test_input function gets scores from GMM set
-        results = self._test_input(data, info, indeces)
+        results, y_test, y_score = self._test_input(data, info, indeces)
 
         self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
@@ -149,7 +149,7 @@ class BasicAudioClassifier:
 
         # import pdb; pdb.set_trace()
         results = OrderedDict()
-        self.scores = {} # initialise dictionary for scores
+        # self.scores = {} # initialise dictionary for scores
         # added self. to make the scores accessible after the fact
         # probably going to have to save indiv. scores for each audio clip
 
@@ -160,16 +160,35 @@ class BasicAudioClassifier:
             # slice data from large arrays
             data_to_evaluate = data[start:end,:-1]
 
-            scores = np.array([np.sum(gmm.score_samples(data_to_evaluate))
+            # extract class label from data array
+            data_class = data[start,-1].reshape(-1)
+            data_class = label_binarize(data_class, classes = [0,1,2,3,4,5,6,7])
+            # this feels clunky but more elaborate would need rewrite
+
+            # build y_test array - clunky but necessary
+            if 'y_test' not in locals():
+                y_test = data_class
+            else:
+                y_test = np.append(y_test, data_class, axis=0)
+
+            this_score = np.array([np.sum(gmm.score_samples(data_to_evaluate))
                            for _, gmm in self._gmms.items()]).reshape(1,-1)
 
             # scale scores between 0 and 1 (ready for ROC)
-            norm_scores = (scores / np.max(np.abs(scores))) + 1
+            # norm_score = (this_score / np.max(np.abs(this_score))) + 1
 
             # find label with highest score and store result in dictionary
-            results[entry] = _label_list[np.argmax(norm_scores)]
+            # this is used for confusion matrix
+            results[entry] = self._label_list[np.argmax(this_score)]
+            # might simplify things to drop the labels here and just use digits
 
-        return results
+            # save previous scores in an array
+            if 'y_score' not in locals():
+                y_score = this_score
+            else:
+                y_score = np.append(y_score, this_score, axis=0)
+
+        return results, y_test, y_score
 
 
 ################################################################################
@@ -223,7 +242,8 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         # fit GMMs to training data (GMMs overwritten on each fold pass)
         self._fit_gmms(train_data)
-        results = self._test_input(self.fold_data, train_info, self.indeces)
+        results, _, _ = self._test_input(
+                                    self.fold_data, train_info, self.indeces)
 
         # find overall training accuracy percentage
         self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
@@ -236,11 +256,14 @@ class MultiFoldClassifier(BasicAudioClassifier):
         # put info from text file into OrderedDict
         test_info = extract_info(test_info)
 
-        results = self._test_input(self.fold_data, test_info, self.indeces)
+        results, y_test, y_score = self._test_input(
+                                    self.fold_data, test_info, self.indeces)
 
         self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
         ' % accurate in labelling the test data.')
+
+        return results, y_test, y_score
 
 
     def save_data(self, filename):
