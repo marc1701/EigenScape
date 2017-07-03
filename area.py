@@ -149,20 +149,25 @@ class BasicAudioClassifier:
 
         # import pdb; pdb.set_trace()
         results = OrderedDict()
-        scores = {} # initialise dictionary for scores
+        self.scores = {} # initialise dictionary for scores
+        # added self. to make the scores accessible after the fact
+        # probably going to have to save indiv. scores for each audio clip
 
         for entry in info:
             # find indeces of data from specific audio file
-            start, end = indeces[entry][0], indeces[entry][1]
+            start, end = indeces[entry]
 
             # slice data from large arrays
             data_to_evaluate = data[start:end,:-1]
 
-            for label, gmm in self._gmms.items():
-                scores[label] = np.sum(gmm.score_samples(data_to_evaluate))
+            scores = np.array([np.sum(gmm.score_samples(data_to_evaluate))
+                           for _, gmm in self._gmms.items()]).reshape(1,-1)
+
+            # scale scores between 0 and 1 (ready for ROC)
+            norm_scores = (scores / np.max(np.abs(scores))) + 1
 
             # find label with highest score and store result in dictionary
-            results[entry] = max(scores, key = scores.get)
+            results[entry] = _label_list[np.argmax(norm_scores)]
 
         return results
 
