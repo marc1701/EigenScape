@@ -7,8 +7,8 @@ import soundfile as sf
 import progressbar as pb
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
+from sklearn.metrics import (confusion_matrix, classification_report,
+                                roc_curve, auc)
 from sklearn.preprocessing import StandardScaler, label_binarize
 
 from spatial import *
@@ -47,13 +47,13 @@ class BasicAudioClassifier:
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
         self._fit_gmms(data)
-        results, _, _  = self._test_input(data, info, indeces)
+        y_test, y_score = self._test_input(data, info, indeces)
 
         # find overall training accuracy percentage
-        self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
+        self.train_acc = int(plot_confusion_matrix(y_test, y_score,
+                            self._label_list)[2]*100)
         print('Training complete. Classifier is ' + str(self.train_acc) +
         ' % accurate in labelling the training data.')
-        return results
 
 
     def test( self, info ):
@@ -65,9 +65,10 @@ class BasicAudioClassifier:
         # scale data using pre-calculated mean and var
         data[:,:-1] = self._scaler.transform(data[:,:-1])
         # _test_input function gets scores from GMM set
-        results, y_test, y_score = self._test_input(data, info, indeces)
+        y_test, y_score = self._test_input(data, info, indeces)
 
-        self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
+        self.test_acc = int(plot_confusion_matrix(y_test, y_score,
+                            self._label_list)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
         ' % accurate in labelling the test data.')
 
@@ -147,12 +148,6 @@ class BasicAudioClassifier:
 
     def _test_input( self, data, info, indeces ):
 
-        # import pdb; pdb.set_trace()
-        results = OrderedDict()
-        # self.scores = {} # initialise dictionary for scores
-        # added self. to make the scores accessible after the fact
-        # probably going to have to save indiv. scores for each audio clip
-
         for entry in info:
             # find indeces of data from specific audio file
             start, end = indeces[entry]
@@ -177,18 +172,13 @@ class BasicAudioClassifier:
             # scale scores between 0 and 1 (ready for ROC)
             # norm_score = (this_score / np.max(np.abs(this_score))) + 1
 
-            # find label with highest score and store result in dictionary
-            # this is used for confusion matrix
-            results[entry] = self._label_list[np.argmax(this_score)]
-            # might simplify things to drop the labels here and just use digits
-
             # save previous scores in an array
             if 'y_score' not in locals():
                 y_score = this_score
             else:
                 y_score = np.append(y_score, this_score, axis=0)
 
-        return results, y_test, y_score
+        return y_test, y_score
 
 
 ################################################################################
@@ -242,13 +232,16 @@ class MultiFoldClassifier(BasicAudioClassifier):
 
         # fit GMMs to training data (GMMs overwritten on each fold pass)
         self._fit_gmms(train_data)
-        results, _, _ = self._test_input(
+        y_test, y_score = self._test_input(
                                     self.fold_data, train_info, self.indeces)
 
         # find overall training accuracy percentage
-        self.train_acc = int(plot_confusion_matrix(train_info, results)[2]*100)
+        self.train_acc = int(plot_confusion_matrix(y_test, y_score,
+                            self._label_list)[2]*100)
         print('Training complete. Classifier is ' + str(self.train_acc)
               + ' % accurate in labelling the training data.')
+
+        return y_test, y_score
 
 
     def test(self, test_info):
@@ -256,14 +249,15 @@ class MultiFoldClassifier(BasicAudioClassifier):
         # put info from text file into OrderedDict
         test_info = extract_info(test_info)
 
-        results, y_test, y_score = self._test_input(
+        y_test, y_score = self._test_input(
                                     self.fold_data, test_info, self.indeces)
 
-        self.test_acc = int(plot_confusion_matrix(test_info, results)[2]*100)
+        self.test_acc = int(plot_confusion_matrix(y_test, y_score,
+                            self._label_list)[2]*100)
         print('Testing complete. Classifier is ' + str(self.test_acc) +
         ' % accurate in labelling the test data.')
 
-        return results, y_test, y_score
+        return y_test, y_score
 
 
     def save_data(self, filename):
@@ -362,20 +356,19 @@ def extract_info( file_to_read ):
     #     info = OrderedDict(line.split() for line in info_file)
 
     return info # info is a dictionary with filenames and class labels
-    # and is the preferred input format for BasicAudioClassifier
+    # and is the input format for BasicAudioClassifier
 
 
-def plot_confusion_matrix( info, results ):
-# this function extracts lists of classes from OrderedDicts passed to it
-# is this doing too much now?
+def plot_confusion_matrix( y_test, y_score, label_list ):
+# plot confusion matrix based on binarized y_test and y_score provided as output
+# from the classifier objects
 
-    true = [label for entry, label in info.items()]
-    predictions = [label for entry, label in results.items()]
+    true = np.argmax(y_test, 1)
+    predictions = np.argmax(y_score, 1)
 
-    label_list = sorted(set(true + predictions))
     label_abbr = [''.join(caps for caps in label if caps.isupper())
                     for label in label_list]
-    report = classification_report(true, predictions, label_list)
+    report = classification_report(true, predictions, target_names=label_list)
 
     confmat = confusion_matrix(true, predictions)
     accuracies = confmat.diagonal() / confmat.sum(axis=1)
@@ -388,3 +381,49 @@ def plot_confusion_matrix( info, results ):
     plt.show()
 
     return confmat, class_accuracies, total_accuracy, report
+
+
+def calc_roc( y_test, y_score ):
+
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+
+    n_classes = y_test.shape[1]
+
+    for i in range(n_classes):
+        # compute ROC curves for each class
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Compute micro-average ROC curve and ROC area
+    fpr[i+1], tpr[i+1], _ = roc_curve(y_test.ravel(), y_score.ravel())
+    roc_auc[i+1] = auc(fpr[i+1], tpr[i+1])
+
+    return fpr, tpr, roc_auc
+
+
+
+def plot_roc( y_test, y_score, label_list ):
+# plots a series of ROC curves for each class and the micro-average
+# might be a little simplistic for my needs - manual plotting could be needed
+
+    fpr, tpr, roc_auc = calc_roc(y_test, y_score)
+
+    label_list.append('Micro-Average')
+
+    for i in range(len(label_list)):
+
+        plt.figure(i)
+        lw = 2
+        plt.plot(fpr[i], tpr[i], color='darkorange',
+                 lw=lw, label='ROC curve (area = %0.2f)' % roc_auc[i])
+        plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title(
+                'Receiver operating characteristic example - ' + label_list[i])
+        plt.legend(loc="lower right")
+        plt.show()
