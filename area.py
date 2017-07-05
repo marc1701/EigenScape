@@ -26,7 +26,7 @@ class BasicAudioClassifier:
     def __init__( self, dataset_directory='' ):
 
         # self._label_list = [] # set up list of class labels
-        self._gmms = {} # initialise dictionary for GMMs
+        self._gmms = OrderedDict() # initialise dictionary for GMMs
 
         # set dataset_directory or class will assume current working directory
         self.dataset_directory = dataset_directory
