@@ -260,6 +260,12 @@ class MultiFoldClassifier(BasicAudioClassifier):
         return y_test, y_score
 
 
+    def fold_eval(self, train_info, test_info):
+
+        self.train(train_info)
+        self.test(test_info)
+
+
     def save_data(self, filename):
         # write out file with sensible number formatting (minimises file size)
         np.savetxt(filename + '_data.txt', self.data, fmt='%1.4f')
