@@ -23,7 +23,7 @@ class BasicAudioClassifier:
     ''' Basic GMM-MFCC audio classifier along the lines of the baseline
     model described in DCASE 2015 '''
 
-    def __init__( self, dataset_directory='' ):
+    def __init__( self, dataset_directory='', n_gaussians=10 ):
 
         # self._label_list = [] # set up list of class labels
         self._gmms = {} # initialise dictionary for GMMs
@@ -35,6 +35,7 @@ class BasicAudioClassifier:
         self._scaler = StandardScaler()
         # we can apply the same transform later to test data using these values
 
+        self._n_gaussians = n_gaussians
 
     def train( self, info ):
 
@@ -137,7 +138,7 @@ class BasicAudioClassifier:
 
             progbar.update(n)
 
-            self._gmms[label] = GaussianMixture(n_components=10)
+            self._gmms[label] = GaussianMixture(self._n_gaussians)
             label_num = self._label_list.index(label)
             # extract class data from training matrix
             label_data = data[data[:,-1] == label_num,:-1]
@@ -260,12 +261,6 @@ class MultiFoldClassifier(BasicAudioClassifier):
         return y_test, y_score
 
 
-    def fold_eval(self, train_info, test_info):
-
-        self.train(train_info)
-        self.test(test_info)
-
-
     def save_data(self, filename):
         # write out file with sensible number formatting (minimises file size)
         np.savetxt(filename + '_data.txt', self.data, fmt='%1.4f')
@@ -337,7 +332,7 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 class ExternalDataClassifier(MultiFoldClassifier):
 
-    def __init__(self, ext_data, indeces, labels_file):
+    def __init__(self, ext_data, indeces, labels_file, **kwargs):
 
         self.data = np.loadtxt(ext_data)
         self.indeces = eval(open(indeces,'r').read())
