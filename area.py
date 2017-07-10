@@ -138,7 +138,7 @@ class BasicAudioClassifier:
 
             progbar.update(n)
 
-            self._gmms[label] = GaussianMixture(self._n_gaussians)
+            self._gmms[label] = GaussianMixture(n_components=self._n_gaussians)
             label_num = self._label_list.index(label)
             # extract class data from training matrix
             label_data = data[data[:,-1] == label_num,:-1]
@@ -332,9 +332,16 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 class ExternalDataClassifier(MultiFoldClassifier):
 
-    def __init__(self, ext_data, indeces, labels_file, **kwargs):
+    def __init__(self, indeces, labels_file,
+                    data_array=None, txt_data=None, **kwargs):
 
-        self.data = np.loadtxt(ext_data)
+        if txt_data is not None:
+            self.data = np.loadtxt(ext_data)
+        else: # rough fix - what I want is elif data is not None but that throws
+        # the valueError demon
+            self.data = data_array
+
+
         self.indeces = eval(open(indeces,'r').read())
 
         with open(labels_file,'r') as labels:
@@ -428,3 +435,10 @@ def plot_roc( y_test, y_score, label_list ):
                 'Receiver operating characteristic example - ' + label_list[i])
         plt.legend(loc="lower right")
         plt.show()
+
+
+def idx_sel(features, f_idx):
+    # neat little function to integrate np.r_ with index dictionaries
+    idx = np.array([np.r_[f_idx[feat][0]:f_idx[feat][1]]
+                    for feat in features]).reshape(-1)
+    return idx
