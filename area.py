@@ -367,7 +367,7 @@ def extract_info( file_to_read ):
     # and is the input format for BasicAudioClassifier
 
 
-def plot_confusion_matrix( y_test, y_score, label_list ):
+def plot_confusion_matrix( y_test, y_score, label_list, plot=True ):
 # plot confusion matrix based on binarized y_test and y_score provided as output
 # from the classifier objects
 
@@ -383,10 +383,11 @@ def plot_confusion_matrix( y_test, y_score, label_list ):
     class_accuracies = dict(zip(label_list, accuracies))
     total_accuracy = confmat.diagonal().sum() / confmat.sum()
 
-    dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
-    plt.figure(figsize = (10,7))
-    sn.heatmap(dataframe_confmat, annot=True)
-    plt.show()
+    if plot:
+        dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
+        plt.figure(figsize = (10,7))
+        sn.heatmap(dataframe_confmat, annot=True)
+        plt.show()
 
     return confmat, class_accuracies, total_accuracy, report
 
