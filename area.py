@@ -23,7 +23,7 @@ class BasicAudioClassifier:
     ''' Basic GMM-MFCC audio classifier along the lines of the baseline
     model described in DCASE 2015 '''
 
-    def __init__( self, dataset_directory='', n_gaussians=10):
+    def __init__( self, dataset_directory='', n_gaussians=10 ):
 
         # self._label_list = [] # set up list of class labels
         self._gmms = OrderedDict() # initialise dictionary for GMMs
@@ -35,7 +35,7 @@ class BasicAudioClassifier:
         self._scaler = StandardScaler()
         # we can apply the same transform later to test data using these values
 
-        self._n_gmms = n_gaussians
+        self._n_gaussians = n_gaussians
 
     def train( self, info ):
 
@@ -47,7 +47,12 @@ class BasicAudioClassifier:
 
         # fit scaler and scale training data (exclude target_numbers column)
         data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
+
+        # **** THIS IS THE ONLY LINE NEEDING CHANGING TO SWITCH OUT GMMs
+        # FOR ANOTHER CLASSIFIER ****
         self._fit_gmms(data)
+        # **** WOULD BE GOOD TO SEPARATE OUT X AND y BEFORE THIS POINT ****
+
         y_test, y_score = self._test_input(data, info, indeces)
 
         # find overall training accuracy percentage
@@ -138,7 +143,7 @@ class BasicAudioClassifier:
 
             progbar.update(n)
 
-            self._gmms[label] = GaussianMixture(n_gaussians)
+            self._gmms[label] = GaussianMixture(n_components=self._n_gaussians)
             label_num = self._label_list.index(label)
             # extract class data from training matrix
             label_data = data[data[:,-1] == label_num,:-1]
@@ -167,13 +172,12 @@ class BasicAudioClassifier:
             else:
                 y_test = np.append(y_test, data_class, axis=0)
 
+            # **** THIS IS THE ONLY LINE THAT NEEDS CHANGING TO SWITCH OUT
+            # GMMs FOR ANOTHER CLASSIFIER ****
             this_score = np.array([np.sum(gmm.score_samples(data_to_evaluate))
                            for _, gmm in self._gmms.items()]).reshape(1,-1)
 
-            # scale scores between 0 and 1 (ready for ROC)
-            # norm_score = (this_score / np.max(np.abs(this_score))) + 1
-
-            # save previous scores in an array
+            # save scores in an array
             if 'y_score' not in locals():
                 y_score = this_score
             else:
@@ -261,12 +265,6 @@ class MultiFoldClassifier(BasicAudioClassifier):
         return y_test, y_score
 
 
-    def fold_eval(self, train_info, test_info):
-
-        self.train(train_info)
-        self.test(test_info)
-
-
     def save_data(self, filename):
         # write out file with sensible number formatting (minimises file size)
         np.savetxt(filename + '_data.txt', self.data, fmt='%1.4f')
@@ -338,9 +336,16 @@ class DiracSpatialClassifier(MultiFoldClassifier):
 
 class ExternalDataClassifier(MultiFoldClassifier):
 
-    def __init__(self, ext_data, indeces, labels_file):
+    def __init__(self, indeces, labels_file,
+                    data_array=None, txt_data=None, **kwargs):
 
-        self.data = np.loadtxt(ext_data)
+        if txt_data is not None:
+            self.data = np.loadtxt(ext_data)
+        else: # rough fix - what I want is elif data is not None but that throws
+        # the valueError demon
+            self.data = data_array
+
+
         self.indeces = eval(open(indeces,'r').read())
 
         with open(labels_file,'r') as labels:
@@ -366,7 +371,7 @@ def extract_info( file_to_read ):
     # and is the input format for BasicAudioClassifier
 
 
-def plot_confusion_matrix( y_test, y_score, label_list ):
+def plot_confusion_matrix( y_test, y_score, label_list, plot=True ):
 # plot confusion matrix based on binarized y_test and y_score provided as output
 # from the classifier objects
 
@@ -382,10 +387,11 @@ def plot_confusion_matrix( y_test, y_score, label_list ):
     class_accuracies = dict(zip(label_list, accuracies))
     total_accuracy = confmat.diagonal().sum() / confmat.sum()
 
-    dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
-    plt.figure(figsize = (10,7))
-    sn.heatmap(dataframe_confmat, annot=True)
-    plt.show()
+    if plot:
+        dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
+        plt.figure(figsize = (10,7))
+        sn.heatmap(dataframe_confmat, annot=True)
+        plt.show()
 
     return confmat, class_accuracies, total_accuracy, report
 
@@ -434,3 +440,10 @@ def plot_roc( y_test, y_score, label_list ):
                 'Receiver operating characteristic example - ' + label_list[i])
         plt.legend(loc="lower right")
         plt.show()
+
+
+def idx_sel(features, f_idx):
+    # neat little function to integrate np.r_ with index dictionaries
+    idx = np.array([np.r_[f_idx[feat][0]:f_idx[feat][1]]
+                    for feat in features]).reshape(-1)
+    return idx
