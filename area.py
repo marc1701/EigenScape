@@ -3,8 +3,11 @@ import glob
 import librosa
 import resampy
 import numpy as np
+import pandas as pd
+import seaborn as sn
 import soundfile as sf
 import progressbar as pb
+import matplotlib.pyplot as plt
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler, label_binarize
@@ -13,10 +16,6 @@ from sklearn.metrics import (confusion_matrix, classification_report,
 
 from spatial import *
 import datatools
-
-import pandas as pd
-import seaborn as sn
-import matplotlib.pyplot as plt
 
 
 class MultiGMMClassifier:
