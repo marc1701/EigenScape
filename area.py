@@ -55,7 +55,7 @@ def BOF_audio_classify( classifier, X, y, info, indices ):
     # provide a classifier object and this will sum its output for each
     # frame in order to classify an entire audio clip
     # entire dataset, info and indices are provided in order to minimise
-    # recalculation of features 
+    # recalculation of features
 
     for entry in info:
         # find indices of data from specific audio file
@@ -94,7 +94,7 @@ def BOF_audio_classify( classifier, X, y, info, indices ):
 
 
 
-def build_audio_featureset(feature_extractor, dataset_directory=''):
+def build_audio_featureset(feature_extractor, dataset_directory='', **kwargs):
 
     dataset_files = [os.path.basename(x) for x in glob.glob(
                         dataset_directory + '*.wav')]
@@ -123,7 +123,7 @@ def build_audio_featureset(feature_extractor, dataset_directory=''):
 
         target = label_list.index(label) # numerical class indicator
 
-        features = feature_extractor(dataset_directory + filepath)
+        features = feature_extractor(dataset_directory + filepath, **kwargs)
 
         # append a targets column at the end of the array
         data_to_add = np.hstack((
@@ -145,7 +145,7 @@ def build_audio_featureset(feature_extractor, dataset_directory=''):
     return data, indices, label_list
 
 
-dirac_fmt = ['%d']*(20) + ['%1.3f']*(20) + ['%d']
+dirac_fmt = ['%d']*(20) + ['%d']*(20) + ['%1.3f']*(20) + ['%d']
 
 def save_data(filename, data, indices, label_list, fmt='%1.3f'):
     # write out file with sensible number formatting (minimises file size)
@@ -180,7 +180,7 @@ def calculate_mfccs(filepath):
     return features
 
 
-def calculate_dirac(filepath):
+def calculate_dirac(filepath, hi_freq=None, n_bands=20, filt_taps=2048):
 
     audio, fs = sf.read(filepath)
     audio = resampy.resample(audio, fs, fs/2, axis=0)
@@ -189,7 +189,8 @@ def calculate_dirac(filepath):
     # hi_freq provided to limit frequency range we are interested in
     # (low frequcies usually of interest). filt_taps can probably be
     # fixed in the future after some testing
-    azi, elev, psi = extract_spatial_features(audio,fs)
+    azi, elev, psi = extract_spatial_features(audio, fs, hi_freq=hi_freq,
+                        n_bands=n_bands, filt_taps=filt_taps)
 
     features = np.hstack((azi,elev,psi))
 
