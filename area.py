@@ -19,343 +19,178 @@ import seaborn as sn
 import matplotlib.pyplot as plt
 
 
-class BasicAudioClassifier:
-    ''' Basic GMM-MFCC audio classifier along the lines of the baseline
-    model described in DCASE 2015 '''
+class MultiGMMClassifier:
 
-    def __init__( self, dataset_directory='', n_gaussians=10 ):
+    def __init__( self, n_components=10 ):
 
-        # self._label_list = [] # set up list of class labels
-        self._gmms = OrderedDict() # initialise dictionary for GMMs
+        self.gmms = OrderedDict() # initialise dictionary for gmms
+        self.n_components = n_components
 
-        # set dataset_directory or class will assume current working directory
-        self.dataset_directory = dataset_directory
 
-        # data scaler for normalisation - remembers mean and var of input data
-        self._scaler = StandardScaler()
-        # we can apply the same transform later to test data using these values
+    def fit( self, X, y ):
 
-        self._n_gaussians = n_gaussians
+        for label in np.unique(y):
 
-    def train( self, info ):
+            # make a GMM for the data class
+            self.gmms[label] = GaussianMixture(self.n_components)
 
-        info = extract_info(info)
+            # extract class data from large array
+            label_data = X[y==label]
 
-        # make list of unique labels in training data
-        self._label_list = sorted(set(labels for x, labels in info.items()))
-        data, indeces = self._build_dataset(info)
+            self.gmms[label].fit(label_data) # train GMMs
 
-        # fit scaler and scale training data (exclude target_numbers column)
-        data[:,:-1] = self._scaler.fit_transform(data[:,:-1])
 
-        # **** THIS IS THE ONLY LINE NEEDING CHANGING TO SWITCH OUT GMMs
-        # FOR ANOTHER CLASSIFIER ****
-        self._fit_gmms(data)
-        # **** WOULD BE GOOD TO SEPARATE OUT X AND y BEFORE THIS POINT ****
+    def decision_function( self, X ):
+        # this is probably not technically a decision function, but this ensures
+        # compatability with the other sklearn classifiers
 
-        y_test, y_score = self._test_input(data, info, indeces)
+        y_score = np.array([gmm.score_samples(X)
+                    for _, gmm in self.gmms.items()]).swapaxes(0, 1)
 
-        # find overall training accuracy percentage
-        self.train_acc = int(plot_confusion_matrix(y_test, y_score,
-                            self._label_list)[2]*100)
-        print('Training complete. Classifier is ' + str(self.train_acc) +
-        ' % accurate in labelling the training data.')
+        return y_score
 
 
-    def test( self, info ):
 
-        # call this function to classify new data after training
-        info = extract_info(info)
-        # generate audio features
-        data, indeces = self._build_dataset(info)
-        # scale data using pre-calculated mean and var
-        data[:,:-1] = self._scaler.transform(data[:,:-1])
-        # _test_input function gets scores from GMM set
-        y_test, y_score = self._test_input(data, info, indeces)
+def audio_clip_clsfy( X, y, info, indices, classifier ):
 
-        self.test_acc = int(plot_confusion_matrix(y_test, y_score,
-                            self._label_list)[2]*100)
-        print('Testing complete. Classifier is ' + str(self.test_acc) +
-        ' % accurate in labelling the test data.')
+    for entry in info:
+        # find indices of data from specific audio file
+        start, end = indices[entry]
 
+        # slice data from large arrays
+        X_to_eval = X[start:end,:]
 
-############################# 'Private' methods: ###############################
+        # slice class label from large array
+        y_to_eval = y[start].reshape(-1)
+        y_to_eval = label_binarize(y_to_eval, classes=[0,1,2,3,4,5,6,7])
+        # above line is clunky - will fix in rewrite (hopefully!)
 
-    def _build_dataset( self, info ):
-        # print('Generating feature dataset from audio files...')
+        # build y_test array - clunky but necessary
+        if 'y_test' not in locals():
+            y_test = y_to_eval
+        else:
+            y_test = np.append(y_test, y_to_eval, axis=0)
 
-        indeces = {}
+        # calculate scores for each frame and sum across clip
+        this_score = np.sum(classifier.decision_function(
+                                X_to_eval), 0).reshape(1,-1)
 
-        progbar = pb.ProgressBar(max_value=len(info))
-        progbar.start()
+        # save scores in an array
+        if 'y_score' not in locals():
+            y_score = this_score
+        else:
+            y_score = np.append(y_score, this_score, axis=0)
 
-        for n, (filepath, label) in enumerate(info.items()):
+    return y_test, y_score
 
-            progbar.update(n)
 
-            target = self._label_list.index(label) # numerical class indicator
 
-            features = self._extract_features(filepath)
 
-            # append a targets column at the end of the mfcc array
-            data_to_add = np.hstack((
-                            features, np.array([[target]] * len(features))))
+########################################################################
 
-            if 'data' not in locals(): # does this variable exist yet?
-                indeces[filepath] = [0, len(data_to_add)]
-                data = data_to_add
-            else:
-                indeces[filepath] = [len(data), len(data) + len(data_to_add)]
 
-                # add indeces for features from current file to dictionary
-                data = np.vstack((data, data_to_add))
-                # this allows for testing classification using features
-                # from specific examples without having to reload audio
 
-        progbar.finish()
-        # print('Feature extraction complete.')
-        return data, indeces
+def build_audio_featureset(feature_extractor, dataset_directory=''):
 
+    dataset_files = [os.path.basename(x) for x in glob.glob(
+                        dataset_directory + '*.wav')]
 
-    def _extract_features(self, filepath):
-        # load audio file
-        # note librosa collapses to mono - auto resample not used
-        audio, fs = librosa.load(self.dataset_directory + filepath, sr=None)
+    dataset_files.sort()
+    # put files in alphabetical / numeric order
 
-        # resampling here @ to fs/2
-        audio = librosa.core.resample(audio, fs, fs/2)
-        fs = fs/2
+    # finding labels from filenames removes the need for a dedicated
+    # 'full set' text file, but this will only work if filenames contain
+    # the labels
 
-        # calculate MFCC values
-        features = librosa.feature.mfcc(audio, fs).T
-        # swap axes so feature vectors are horizontal (time runs downwards)
+    info = OrderedDict([line, line[:line.find('.')]]
+                        for line in dataset_files)
 
-        return features
+    # make list of unique labels in data
+    label_list = sorted(set(labels for x, labels in info.items()))
 
+    indices = {}
 
-    def _fit_gmms( self, data ):
+    progbar = pb.ProgressBar(max_value=len(info))
+    progbar.start()
 
-        # print('Fitting GMMs to data classes...')
-        progbar = pb.ProgressBar(max_value=len(self._label_list))
-        progbar.start()
+    for n, (filepath, label) in enumerate(info.items()):
 
-        for n, label in enumerate(self._label_list):
+        progbar.update(n)
 
-            progbar.update(n)
+        target = label_list.index(label) # numerical class indicator
 
-            self._gmms[label] = GaussianMixture(n_components=self._n_gaussians)
-            label_num = self._label_list.index(label)
-            # extract class data from training matrix
-            label_data = data[data[:,-1] == label_num,:-1]
-            self._gmms[label].fit(label_data) # train GMMs
+        features = feature_extractor(dataset_directory + filepath)
 
-        progbar.finish()
+        # append a targets column at the end of the array
+        data_to_add = np.hstack((
+                        features, np.array([[target]] * len(features))))
 
+        if 'data' not in locals(): # does this variable exist yet?
+            indices[filepath] = [0, len(data_to_add)]
+            data = data_to_add
+        else:
+            indices[filepath] = [len(data), len(data) + len(data_to_add)]
 
-    def _test_input( self, data, info, indeces ):
+            # add indices for features from current file to dictionary
+            data = np.vstack((data, data_to_add))
+            # this allows for testing classification using features
+            # from specific examples without having to reload audio
 
-        for entry in info:
-            # find indeces of data from specific audio file
-            start, end = indeces[entry]
+    progbar.finish()
 
-            # slice data from large arrays
-            data_to_evaluate = data[start:end,:-1]
+    return data, indices, label_list
 
-            # extract class label from data array
-            data_class = data[start,-1].reshape(-1)
-            data_class = label_binarize(data_class, classes = [0,1,2,3,4,5,6,7])
-            # this feels clunky but more elaborate would need rewrite
 
-            # build y_test array - clunky but necessary
-            if 'y_test' not in locals():
-                y_test = data_class
-            else:
-                y_test = np.append(y_test, data_class, axis=0)
+dirac_fmt = ['%d']*(20) + ['%1.3f']*(20) + ['%d']
 
-            # **** THIS IS THE ONLY LINE THAT NEEDS CHANGING TO SWITCH OUT
-            # GMMs FOR ANOTHER CLASSIFIER ****
-            this_score = np.array([np.sum(gmm.score_samples(data_to_evaluate))
-                           for _, gmm in self._gmms.items()]).reshape(1,-1)
+def save_data(filename, data, indices, label_list, fmt='%1.3f'):
+    # write out file with sensible number formatting (minimises file size)
+    np.savetxt(filename + '_data.txt', data, fmt)
 
-            # save scores in an array
-            if 'y_score' not in locals():
-                y_score = this_score
-            else:
-                y_score = np.append(y_score, this_score, axis=0)
+    # write out dictionary of file clip indices (readable back using eval)
+    with open(filename + '_file_indices.txt','w') as out_file:
+        out_file.write('{')
+        for entry, vals in indices.items():
+            out_file.write("'"+entry+"'"+':'+str(vals)+', ')
+        out_file.write('}')
 
-        return y_test, y_score
+    # write out list of labels
+    with open(filename + '_labels.txt','w') as out_file:
+        for label in label_list:
+            out_file.write(label + '\n')
 
 
-################################################################################
-################################################################################
-class MultiFoldClassifier(BasicAudioClassifier):
+def calculate_mfccs(filepath):
+    # load audio file
+    # note librosa collapses to mono - auto resample not used
+    audio, fs = librosa.load(filepath, sr=None)
 
-    def __init__(self, **kwargs):
-        super(MultiFoldClassifier, self).__init__(**kwargs)
+    # resampling here @ to fs/2
+    audio = librosa.core.resample(audio, fs, fs/2)
+    fs = fs/2
 
-        # to speed up multifold testing, all audio is loaded and features
-        # calculated at the start (saves reloading all the data for each fold)
-        dataset_files = [os.path.basename(x)
-                            for x in glob.glob(
-                            self.dataset_directory + '*.wav')]
+    # calculate MFCC values
+    features = librosa.feature.mfcc(audio, fs).T
+    # swap axes so feature vectors are horizontal (time runs downwards)
 
-        dataset_files.sort()
-        # put files in alphabetical / numeric order
+    return features
 
-        # finding labels from filenames removes the need for a dedicated
-        # 'full set' text file, but this will only work if filenames contain
-        # the labels
 
-        dataset_info = OrderedDict([line, line[:line.find('.')]]
-                            for line in dataset_files)
+def calculate_dirac(filepath):
 
-        # make list of unique labels in data
-        self._label_list = sorted(set(labels
-                            for x, labels in dataset_info.items()))
+    audio, fs = sf.read(filepath)
+    audio = resampy.resample(audio, fs, fs/2, axis=0)
+    fs = fs/2 # update fs after resampling
 
-        self.data, self.indeces = self._build_dataset(dataset_info)
+    # hi_freq provided to limit frequency range we are interested in
+    # (low frequcies usually of interest). filt_taps can probably be
+    # fixed in the future after some testing
+    azi, elev, psi = extract_spatial_features(audio,fs)
 
+    features = np.hstack((azi,elev,psi))
 
-    def train(self, train_info):
+    return features
 
-        # put info from text file into OrderedDict
-        train_info = extract_info(train_info)
-
-        # get all indeces of training data points and put into numpy array
-        train_indeces = np.array([np.r_[
-                        self.indeces[file][0]:self.indeces[file][1]]
-                        for file in train_info]).reshape(-1)
-        # slice training data from main data array
-        train_data = np.copy(self.data[train_indeces])
-        # fit the scaler to training data only
-        train_data[:,:-1] = self._scaler.fit_transform(train_data[:,:-1])
-
-        # apply scaler to dataset copy (overwritten on each fold pass)
-        # original data array left unchanged
-        self.fold_data = np.copy(self.data)
-        self.fold_data[:,:-1] = self._scaler.transform(self.fold_data[:,:-1])
-
-        # fit GMMs to training data (GMMs overwritten on each fold pass)
-        self._fit_gmms(train_data)
-        y_test, y_score = self._test_input(
-                                    self.fold_data, train_info, self.indeces)
-
-        # find overall training accuracy percentage
-        self.train_acc = int(plot_confusion_matrix(y_test, y_score,
-                            self._label_list)[2]*100)
-        print('Training complete. Classifier is ' + str(self.train_acc)
-              + ' % accurate in labelling the training data.')
-
-        return y_test, y_score
-
-
-    def test(self, test_info):
-
-        # put info from text file into OrderedDict
-        test_info = extract_info(test_info)
-
-        y_test, y_score = self._test_input(
-                                    self.fold_data, test_info, self.indeces)
-
-        self.test_acc = int(plot_confusion_matrix(y_test, y_score,
-                            self._label_list)[2]*100)
-        print('Testing complete. Classifier is ' + str(self.test_acc) +
-        ' % accurate in labelling the test data.')
-
-        return y_test, y_score
-
-
-    def save_data(self, filename):
-        # write out file with sensible number formatting (minimises file size)
-        np.savetxt(filename + '_data.txt', self.data, fmt='%1.4f')
-        # not sure now about this formatting - might be an idea to save out
-        # multiple resolutions and see where there stops being changes
-
-        self.save_metadata(filename)
-
-
-    def save_metadata(self, filename):
-
-        # write out dictionary of file clip indeces (readable back using eval)
-        with open(filename + '_indeces.txt','w') as out_file:
-            out_file.write('{')
-            for entry, vals in self.indeces.items():
-                out_file.write("'"+entry+"'"+':'+str(vals)+', ')
-            out_file.write('}')
-
-        # write out list of labels
-        with open(filename + '_labels.txt','w') as out_file:
-            for label in self._label_list:
-                out_file.write(label + '\n')
-
-################################################################################
-################################################################################
-
-class DiracSpatialClassifier(MultiFoldClassifier):
-    """docstring for SpatialClassifier.MultiFoldClassifier"""
-
-    def __init__(self, hi_freq=None, n_bands=20, filt_taps=2048, **kwargs):
-
-        self.hi_freq = hi_freq
-        self.n_bands = n_bands
-        self.filt_taps = filt_taps
-
-        super(DiracSpatialClassifier, self).__init__(**kwargs)
-
-
-    def save_data(self, filename):
-
-        # write out file with sensible number formatting (minimises file size)
-        np.savetxt(filename+ '_data.txt', self.data,
-                   fmt=['%d']*(self.n_bands*2)
-                   + ['%1.3f']*(self.n_bands) + ['%d'])
-
-        self.save_metadata(filename)
-
-################################################################################
-
-    def _extract_features(self, filepath):
-
-        audio, fs = sf.read(self.dataset_directory + filepath)
-        audio = resampy.resample(audio, fs, fs/2, axis=0)
-        fs = fs/2 # update fs after resampling
-
-        # hi_freq provided to limit frequency range we are interested in
-        # (low frequcies usually of interest). filt_taps can probably be
-        # fixed in the future after some testing
-        azi, elev, psi = extract_spatial_features(audio,fs,hi_freq=self.hi_freq,
-                            n_bands=self.n_bands,filt_taps=self.filt_taps)
-
-        features = np.hstack((azi,elev,psi))
-
-        return features
-
-
-################################################################################
-################################################################################
-
-class ExternalDataClassifier(MultiFoldClassifier):
-
-    def __init__(self, indeces, labels_file,
-                    data_array=None, txt_data=None, **kwargs):
-
-        if txt_data is not None:
-            self.data = np.loadtxt(ext_data)
-        else: # rough fix - what I want is elif data is not None but that throws
-        # the valueError demon
-            self.data = data_array
-
-
-        self.indeces = eval(open(indeces,'r').read())
-
-        with open(labels_file,'r') as labels:
-            self._label_list = [line.rstrip() for line in labels.readlines()]
-
-        BasicAudioClassifier.__init__(self)
-
-
-################################################################################
-################################################################################
 
 
 def extract_info( file_to_read ):
@@ -447,3 +282,21 @@ def idx_sel(features, f_idx):
     idx = np.array([np.r_[f_idx[feat][0]:f_idx[feat][1]]
                     for feat in features]).reshape(-1)
     return idx
+
+
+# def load_data(filename):
+#
+#     ext_data = filename + '_data.txt'
+#     file_indices = filename + '_file_indices.txt'
+#     labels_file = filename + '_labels.txt'
+#     feature_indices = filename + '_feature_indices.txt'
+#
+#     data = np.loadtxt(ext_data)
+#
+#     file_idx = eval(open(file_indices, 'r').read())
+#     feature_idx = eval(open(feature_indices, 'r').read())
+#
+#     with open(labels_file,'r') as labels:
+#         label_list = [line.rstrip() for line in labels.readlines()]
+#
+#     return data, file_idx, feature_idx, label_list
