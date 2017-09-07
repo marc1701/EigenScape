@@ -7,9 +7,9 @@ import soundfile as sf
 import progressbar as pb
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import StandardScaler, label_binarize
 from sklearn.metrics import (confusion_matrix, classification_report,
                                 roc_curve, auc)
-from sklearn.preprocessing import StandardScaler, label_binarize
 
 from spatial import *
 import datatools
