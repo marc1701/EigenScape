@@ -51,7 +51,11 @@ class MultiGMMClassifier:
 
 
 
-def audio_clip_clsfy( X, y, info, indices, classifier ):
+def BOF_audio_classify( classifier, X, y, info, indices ):
+    # provide a classifier object and this will sum its output for each
+    # frame in order to classify an entire audio clip
+    # entire dataset, info and indices are provided in order to minimise
+    # recalculation of features 
 
     for entry in info:
         # find indices of data from specific audio file
