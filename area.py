@@ -288,6 +288,51 @@ def idx_sel(features, f_idx):
     return idx
 
 
+def plot_multifold_roc( y_test_folds, y_score_folds, label_list ):
+# in this case y_test_folds and y_score_folds are dictionaries containing y_test
+# and y_score values across each calculated fold
+    label_list.append('Micro-Average')
+
+    for j in range(len(label_list)):
+
+        tprs = []
+        aucs = []
+        mean_fpr = np.linspace(0, 1, 100)
+
+        for i in y_test_folds:
+            fpr, tpr, auc_val = area.calc_roc(y_test_folds[i], y_score_folds[i])
+            tprs.append(interp(mean_fpr, fpr[j], tpr[j]))
+            tprs[-1][0] = 0.0
+            aucs.append(auc_val[j])
+            plt.plot(fpr[j], tpr[j], lw=1, alpha=0.3,
+                     label='ROC fold %d (AUC = %0.2f)' % (i, auc_val[j]))
+
+        plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+                 label='Luck', alpha=.8)
+
+        mean_tpr = np.mean(tprs, axis=0)
+        mean_tpr[-1] = 1.0
+        mean_auc = auc(mean_fpr, mean_tpr)
+        std_auc = np.std(aucs)
+        plt.plot(mean_fpr, mean_tpr, color='b',
+                 label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+                 lw=2, alpha=.8)
+
+        std_tpr = np.std(tprs, axis=0)
+        tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+        tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+        plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                         label=r'$\pm$ 1 std. dev.')
+
+        plt.xlim([-0.05, 1.05])
+        plt.ylim([-0.05, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic - ' + label_list[j])
+        plt.legend(loc="lower right")
+        plt.show()
+
+
 # def load_data(filename):
 #
 #     ext_data = filename + '_data.txt'
