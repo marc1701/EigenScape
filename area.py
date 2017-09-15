@@ -248,9 +248,25 @@ def calc_roc( y_test, y_score ):
         fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
 
-    # Compute micro-average ROC curve and ROC area
+    # Compute micro-average ROC curve and AUC
     fpr[i+1], tpr[i+1], _ = roc_curve(y_test.ravel(), y_score.ravel())
     roc_auc[i+1] = auc(fpr[i+1], tpr[i+1])
+
+    # Compute macro-average ROC curve and AUC
+    # First aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += interp(all_fpr, fpr[i], tpr[i])
+
+    # Finally average it and compute AUC
+    mean_tpr /= n_classes
+
+    fpr[i+2] = all_fpr
+    tpr[i+2] = mean_tpr
+    auc_val[i+2] = auc(fpr[i+2], tpr[i+2])
 
     return fpr, tpr, roc_auc
 
@@ -263,6 +279,7 @@ def plot_roc( y_test, y_score, label_list ):
     fpr, tpr, roc_auc = calc_roc(y_test, y_score)
 
     label_list.append('Micro-Average')
+    label_list.append('Macro-Average')
 
     for i in range(len(label_list)):
 
