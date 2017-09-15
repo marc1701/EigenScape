@@ -8,6 +8,7 @@ import seaborn as sn
 import soundfile as sf
 import progressbar as pb
 import matplotlib.pyplot as plt
+from scipy import interp
 from collections import OrderedDict
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler, label_binarize
@@ -266,7 +267,7 @@ def calc_roc( y_test, y_score ):
 
     fpr[i+2] = all_fpr
     tpr[i+2] = mean_tpr
-    auc_val[i+2] = auc(fpr[i+2], tpr[i+2])
+    roc_auc[i+2] = auc(fpr[i+2], tpr[i+2])
 
     return fpr, tpr, roc_auc
 
@@ -318,12 +319,12 @@ def plot_multifold_roc( y_test_folds, y_score_folds, label_list ):
         mean_fpr = np.linspace(0, 1, 100)
 
         for i in y_test_folds:
-            fpr, tpr, auc_val = area.calc_roc(y_test_folds[i], y_score_folds[i])
+            fpr, tpr, roc_auc = area.calc_roc(y_test_folds[i], y_score_folds[i])
             tprs.append(interp(mean_fpr, fpr[j], tpr[j]))
             tprs[-1][0] = 0.0
-            aucs.append(auc_val[j])
+            aucs.append(roc_auc[j])
             plt.plot(fpr[j], tpr[j], lw=1, alpha=0.3,
-                     label='ROC fold %d (AUC = %0.2f)' % (i, auc_val[j]))
+                     label='ROC fold %d (AUC = %0.2f)' % (i, roc_auc[j]))
 
         plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
                  label='Luck', alpha=.8)
