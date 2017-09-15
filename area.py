@@ -309,6 +309,7 @@ def plot_multifold_roc( y_test_folds, y_score_folds, label_list ):
 # in this case y_test_folds and y_score_folds are dictionaries containing y_test
 # and y_score values across each calculated fold
     label_list.append('Micro-Average')
+    label_list.append('Macro-Average')
 
     for j in range(len(label_list)):
 
