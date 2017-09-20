@@ -10,6 +10,13 @@ import shutil
 import random
 
 def create_test_setup(dataset_dir, seg_length=30, **kwargs):
+    # automates use of functions below
+    # audio present in dataset_dir is split into segments of seg_length.
+    # seg_length is set in seconds and length of full files must be exactly
+    # divisible by this value. segments are then split into n_folds for training
+    # and testing, making sure that segments from the same longer recording do
+    # not cross over between sets
+
     split_audio_set(dataset_dir, seg_length)
     make_folds(**kwargs)
 

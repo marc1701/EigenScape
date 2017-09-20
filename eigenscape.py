@@ -20,6 +20,10 @@ import datatools
 
 
 class MultiGMMClassifier:
+    # classifier using a bank of GMMs (rather than a single GMM with many
+    # components). one GMM is trained per class label present in y. probability
+    # scores from each GMM for test data are concatenated to form
+    # decision_function output
 
     def __init__( self, n_components=10 ):
 
@@ -95,6 +99,10 @@ def BOF_audio_classify( classifier, X, y, info, indices ):
 
 
 def build_audio_featureset(feature_extractor, dataset_directory='', **kwargs):
+    # constructs large numpy array containing features extracted from the audio
+    # files present in dataset_directory. as features are extracted from short
+    # frames of a larger audio file, this fucntion keeps track of which feature
+    # vectors have been extracted from which larger file (indices dict)
 
     dataset_files = [os.path.basename(x) for x in glob.glob(
                         dataset_directory + '*.wav')]
@@ -181,6 +189,8 @@ def calculate_mfccs(filepath):
 
 
 def calculate_dirac(filepath, hi_freq=None, n_bands=20, filt_taps=2048):
+    # resamples audio and extracts features using directional audio coding
+    # techniques
 
     audio, fs = sf.read(filepath)
     audio = resampy.resample(audio, fs, fs/2, axis=0)
@@ -199,16 +209,13 @@ def calculate_dirac(filepath, hi_freq=None, n_bands=20, filt_taps=2048):
 
 
 def extract_info( file_to_read ):
+    # converts file lists into dictionaries with file names and class labels
 
     with open(file_to_read) as info_file:
         info = OrderedDict([line.rstrip('\n'), line[:line.find('.')]]
                             for line in info_file)
 
-    # with open(file_to_read) as info_file:
-    #     info = OrderedDict(line.split() for line in info_file)
-
-    return info # info is a dictionary with filenames and class labels
-    # and is the input format for BasicAudioClassifier
+    return info
 
 
 def vectorise_indices(info):
