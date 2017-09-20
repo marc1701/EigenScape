@@ -211,6 +211,14 @@ def extract_info( file_to_read ):
     # and is the input format for BasicAudioClassifier
 
 
+def vectorise_indices(info):
+    vector_indices = np.array([np.r_[
+                     indices[file][0]:indices[file][1]]
+                     for file in info]).reshape(-1)
+
+    return vector_indices
+
+
 def plot_confusion_matrix( y_test, y_score, label_list, plot=True ):
 # plot confusion matrix based on binarized y_test and y_score provided as output
 # from the classifier objects
@@ -319,7 +327,7 @@ def plot_multifold_roc( y_test_folds, y_score_folds, label_list ):
         mean_fpr = np.linspace(0, 1, 100)
 
         for i in y_test_folds:
-            fpr, tpr, roc_auc = area.calc_roc(y_test_folds[i], y_score_folds[i])
+            fpr, tpr, roc_auc = calc_roc(y_test_folds[i], y_score_folds[i])
             tprs.append(interp(mean_fpr, fpr[j], tpr[j]))
             tprs[-1][0] = 0.0
             aucs.append(roc_auc[j])
@@ -350,21 +358,3 @@ def plot_multifold_roc( y_test_folds, y_score_folds, label_list ):
         plt.title('Receiver Operating Characteristic - ' + label_list[j])
         plt.legend(loc="lower right")
         plt.show()
-
-
-# def load_data(filename):
-#
-#     ext_data = filename + '_data.txt'
-#     file_indices = filename + '_file_indices.txt'
-#     labels_file = filename + '_labels.txt'
-#     feature_indices = filename + '_feature_indices.txt'
-#
-#     data = np.loadtxt(ext_data)
-#
-#     file_idx = eval(open(file_indices, 'r').read())
-#     feature_idx = eval(open(feature_indices, 'r').read())
-#
-#     with open(labels_file,'r') as labels:
-#         label_list = [line.rstrip() for line in labels.readlines()]
-#
-#     return data, file_idx, feature_idx, label_list

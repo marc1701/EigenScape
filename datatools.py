@@ -32,7 +32,7 @@ def split_audio_set(dataset_dir, seg_length):
         segs = np.split(audio, n_segs) # split audio into n equal chunks
 
         n_digits = len(str(len(segs))) # n_digits for use in filename
-        filename = os.path.splitext(os.path.basename(path))[0] # strip '.wav'
+        filename = os.path.splitext(os.path.basename(path))[0] # strip extension
 
         # make hidden output directories
         output_dir = '.chop/' + filename[filename.find('.')+1]
@@ -60,11 +60,14 @@ def make_folds(n_folds=4, output_text_dir='fold_info',
 
     filepath_list = [glob.glob(folder + '/*')
                      for folder in glob.glob('.chop/*')]
-    filename_list = [[os.path.basename(path) + '\n' for path in fold]
+    filename_list = [[os.path.basename(path) for path in fold]
+                     for fold in filepath_list]
+    filenames_to_write = [[os.path.basename(path) + '\n' for path in fold]
                      for fold in filepath_list]
 
+
     # make lists of files from imported list
-    test_files = [unpack_list([filename_list[n] for n in m])
+    test_files = [unpack_list([filenames_to_write[n] for n in m])
                     for m in test_folds]
     train_files = [unpack_list([x for x in test_files if x not in [files]])
                     for files in test_files]
@@ -78,9 +81,9 @@ def make_folds(n_folds=4, output_text_dir='fold_info',
         os.makedirs(output_audio_dir, exist_ok=True)
 
         # move audio to database folder
-        for filepath in unpack_list(filepath_list):
+        for n, filepath in enumerate(unpack_list(filepath_list)):
             os.rename(filepath, output_audio_dir + '/'
-                      + filepath[filepath.find('/')+3:])
+                        + unpack_list(filename_list)[n])
 
         shutil.rmtree('.chop')
 
