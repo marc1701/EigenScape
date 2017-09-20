@@ -31,6 +31,13 @@ def mel_spaced_filterbank( n_filts, low_freq, hi_freq, filt_taps, fs ):
     filter_band_freqs = librosa.core.mel_frequencies(n_filts+2,
                                                      low_freq, hi_freq)
 
+    # move cutoff frequencies to avoid signal.firwin cutoff error
+    if filter_band_freqs[0] == [0]:
+        filter_band_freqs[0] = 1
+
+    if filter_band_freqs[-1] >= fs / 2:
+        filter_band_freqs[-1] -= 1
+
     filters = np.array([signal.firwin(filt_taps,[filter_band_freqs[i],
                         filter_band_freqs[i+2]], pass_zero=False,nyq=fs/2)
                         for i in range(n_filts)])
@@ -38,14 +45,17 @@ def mel_spaced_filterbank( n_filts, low_freq, hi_freq, filt_taps, fs ):
     return filters
 
 
-def extract_spatial_features(audio, fs, low_freq=20, hi_freq=20000, n_bands=42,
-                                filt_taps=4096, Z_0=413.3, rho_0=1.2041,
-                                c=343.21):
+def extract_spatial_features(audio, fs, low_freq=0, hi_freq=None, n_bands=20,
+                                filt_taps=2048, Z_0=413.3, rho_0=1.2041,
+                                c=343.21, ordering='ACN'):
 
     # constants to use in equations (these are approx. correct for air @ 20 C):
     # Z_0 = characteristic acoustic impedance of air
     # rho_0 = density of air
     # c = speed of sound
+
+    if hi_freq == None:
+        hi_freq = fs // 2
 
     filters = mel_spaced_filterbank(n_bands, low_freq, hi_freq, filt_taps, fs)
 
@@ -55,6 +65,10 @@ def extract_spatial_features(audio, fs, low_freq=20, hi_freq=20000, n_bands=42,
 
     # multiband calculation of u (velocity):
     u = - filt_audio[:,:,1:] / (Z_0 * np.sqrt(2))
+
+    # re-order ACN format to FuMa (YZX to XYZ)
+    if ordering == 'ACN':
+        u = np.roll(u,1)
 
     p = filt_audio[:,:,0] # p = sound pressure (W)
 
