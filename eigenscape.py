@@ -235,12 +235,12 @@ def plot_confusion_matrix( y_test, y_score, label_list, plot=True ):
 
     label_abbr = [''.join(caps for caps in label if caps.isupper())
                     for label in label_list]
-    report = classification_report(true, predictions, target_names=label_list)
+    # report = classification_report(true, predictions, target_names=label_list)
 
     confmat = confusion_matrix(true, predictions)
-    accuracies = confmat.diagonal() / confmat.sum(axis=1)
-    class_accuracies = dict(zip(label_list, accuracies))
-    total_accuracy = confmat.diagonal().sum() / confmat.sum()
+    # accuracies = confmat.diagonal() / confmat.sum(axis=1)
+    # class_accuracies = dict(zip(label_list, accuracies))
+    # total_accuracy = confmat.diagonal().sum() / confmat.sum()
 
     if plot:
         dataframe_confmat = pd.DataFrame(confmat, label_list, label_abbr)
@@ -248,7 +248,7 @@ def plot_confusion_matrix( y_test, y_score, label_list, plot=True ):
         sn.heatmap(dataframe_confmat, annot=True)
         plt.show()
 
-    return confmat, class_accuracies, total_accuracy, report
+    return confmat# , class_accuracies, total_accuracy, report
 
 
 def calc_roc( y_test, y_score ):
