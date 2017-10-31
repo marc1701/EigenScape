@@ -1,4 +1,5 @@
-# EigenScape Tools
+# EigenScape Tools [![DOI](https://zenodo.org/badge/79900362.svg)](https://zenodo.org/badge/latestdoi/79900362)
+
 ## by Marc Ciufo Green
 
 Acoustic Scene Classification system designed for use with the EigenScape database. The main features of the module provided here are:
