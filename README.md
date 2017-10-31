@@ -107,7 +107,7 @@ This will plot a confusion matrix based on the output from the classifier and re
 
 `eigenscape.plot_roc` is also provided to plot ROC curves based on classifier output.
 
-EigenScape database available at - [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1012809.svg)](https://doi.org/10.5281/zenodo.1012809). 
+EigenScape database available: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1012809.svg)](https://doi.org/10.5281/zenodo.1012809) 
 
 [1]:http://www.aes.org/e-lib/browse.cfm?elib=14838
 [2]:http://asa.scitation.org/doi/10.1121/1.2750160
