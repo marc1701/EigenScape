@@ -1,8 +1,9 @@
-# EigenScape Tools [![DOI](https://zenodo.org/badge/79900362.svg)](https://zenodo.org/badge/latestdoi/79900362)
+# EigenScape Tools 
+[![DOI](https://zenodo.org/badge/79900362.svg)](https://zenodo.org/badge/latestdoi/79900362)
 
 ## by Marc Ciufo Green
 
-Acoustic Scene Classification system designed for use with the EigenScape database. The main features of the module provided here are:
+Acoustic Scene Classification system designed for use with the EigenScape database - [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1012809.svg)](https://doi.org/10.5281/zenodo.1012809). The main features of the module provided here are:
 
 - Tools enabling easier manipulation and segmentation of the EigenScape database.
 - Function for extraction of spatial features using [Directional Audio Coding (DirAC) techniques][1].
@@ -107,7 +108,6 @@ This will plot a confusion matrix based on the output from the classifier and re
 
 `eigenscape.plot_roc` is also provided to plot ROC curves based on classifier output.
 
-<!-- Need then to do semi-detailed comments in main files to indicate e.g. when special features such as passing in a custom classifier object etc. is done -->
 
 [1]:http://www.aes.org/e-lib/browse.cfm?elib=14838
 [2]:http://asa.scitation.org/doi/10.1121/1.2750160
