@@ -17,6 +17,7 @@ from sklearn.metrics import (confusion_matrix, classification_report,
 
 from spatial import *
 import datatools
+import aubio
 
 
 class MultiGMMClassifier:
@@ -188,6 +189,41 @@ def calculate_mfccs(filepath):
     return features
 
 
+def calculate_aubio_mfccs(filepath, hop_size=1024, n_filters=40, n_coeffs=20):
+
+    # fixed 50% hop for now - not yet entirely sure how aubio handles this
+    win_size = hop_size * 2
+
+    audio, fs = sf.read(filepath)
+    audio = audio[:,0] # take mono track only
+    audio = np.ascontiguousarray(audio)
+
+    # aubio phase vocoder object (does the fft)
+    p = aubio.pvoc(win_size, hop_size)
+    # aubio mfcc calculation object (uses output from p)
+    m = aubio.mfcc(win_size, n_filters, n_coeffs, fs)
+
+    # split audio into frames
+    framed_audio = librosa.util.frame(audio, hop_size, hop_size).T
+
+    # preallocate output array
+    mfccs = np.zeros((len(framed_audio), n_coeffs))
+
+    for i, frame in enumerate(framed_audio):
+        frame = np.array(frame, dtype='float32')
+
+        # output spectrum from pvoc (aubio cvec type - not directy readable)
+        spec = p(frame)
+
+        # cacluates and returns MFCCs based on spectrum
+        mfcc_frame = m(spec)
+
+        # add frame to array
+        mfccs[i,:] = mfcc_frame
+
+    return mfccs
+
+
 def calculate_dirac(filepath, hi_freq=None, n_bands=20, filt_taps=2048):
     # resamples audio and extracts features using directional audio coding
     # techniques
@@ -218,7 +254,7 @@ def extract_info( file_to_read ):
     return info
 
 
-def vectorise_indices(info):
+def vectorise_indices(info, indices):
     vector_indices = np.array([np.r_[
                      indices[file][0]:indices[file][1]]
                      for file in info]).reshape(-1)
