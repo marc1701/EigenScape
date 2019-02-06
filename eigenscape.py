@@ -218,7 +218,7 @@ def extract_info( file_to_read ):
     return info
 
 
-def vectorise_indices(info):
+def vectorise_indices(info, indices):
     vector_indices = np.array([np.r_[
                      indices[file][0]:indices[file][1]]
                      for file in info]).reshape(-1)
